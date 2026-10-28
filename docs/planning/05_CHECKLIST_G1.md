@@ -18,7 +18,7 @@
 - [ ] Nếu DB tồn tại trước đó: được chủ sở hữu cho phép sử dụng hoặc chuyển sang sandbox mới.
 
 ## C. Hợp đồng nhóm – BẮT BUỘC
-- [ ] Kiệt xác nhận test cases T0–T7 và kết quả kỳ vọng.
+- [x] **Kiệt xác nhận test cases T0–T7 và kết quả kỳ vọng.** ✅ 2026-10-28 – Xem `04_testplan_Kiet_G1.md`
 - [ ] Thùy xác nhận hiểu nghĩa timestamp của ManualHistory và xử lý nhiều dòng.
 - [ ] Trung xác nhận period DATETIME2 và phiên bản SQL Server thực tế.
 - [ ] Hoàng ghi quyết định G1, ngày chốt và người xác nhận.
