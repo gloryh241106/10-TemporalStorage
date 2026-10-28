@@ -1,11 +1,11 @@
 /*
-CSC12003 | Nhom 10 | Chu de 8 | Hoang (TV1) | G1 baseline v3
+CSC12003 | Nhom 10 | Chu de 8 | Hoang (TV1) | G1 baseline v4 (one ProductID)
 TARGET: Microsoft SQL Server 2016+; chay bang SSMS hoac sqlcmd (GO la batch separator).
 CONG DUNG: tao database/schema, Product, hai bang gia CHUA temporal, seed R0.
 KHONG tao trigger / history / period columns / SYSTEM_VERSIONING.
 AN TOAN: khong DROP, khong reset; neu gap du lieu da co ma thieu marker thi STOP.
 CHU Y: dung tren instance thu nghiem; sao luu neu database cung ten da ton tai.
-Chua co bang chung script da chay tren SQL Server that trong moi truong soan thao.
+Ban V4 da sua schema, CHUA duoc chay xac minh trong phien cap nhat nay.
 */
 SET NOCOUNT ON;
 GO
@@ -19,6 +19,11 @@ IF DB_ID(N'TemporalSeminarDB') IS NULL
 GO
 USE [TemporalSeminarDB];
 GO
+-- Neu DB da co baseline V3: chay 02_migrate_v3_to_v4_once.sql TRUOC khi setup V4.
+-- Script nay khong tu dong DROP cot/constraint cua database da ton tai.
+IF COL_LENGTH(N'dbo.Product', N'ProductCode') IS NOT NULL
+    THROW 52002, N'Phat hien schema V3 (ProductCode). Chay migration 02_migrate_v3_to_v4_once.sql truoc.', 1;
+GO
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
@@ -28,11 +33,9 @@ IF OBJECT_ID(N'dbo.Product', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Product (
         ProductID INT NOT NULL,
-        ProductCode VARCHAR(20) NOT NULL,
         ProductName NVARCHAR(100) NOT NULL,
         Category NVARCHAR(60) NOT NULL,
-        CONSTRAINT PK_Product PRIMARY KEY (ProductID),
-        CONSTRAINT UQ_Product_ProductCode UNIQUE (ProductCode)
+        CONSTRAINT PK_Product PRIMARY KEY (ProductID)
     );
 END;
 GO
@@ -70,24 +73,24 @@ BEGIN
     );
 END;
 GO
-IF NOT EXISTS (SELECT 1 FROM demo.SeedState WHERE SetupKey = N'TV1_BASELINE_V3')
+IF NOT EXISTS (SELECT 1 FROM demo.SeedState WHERE SetupKey = N'TV1_BASELINE_V4')
 BEGIN
     IF EXISTS (SELECT 1 FROM dbo.Product)
        OR EXISTS (SELECT 1 FROM demo.ProductPrice_Manual)
        OR EXISTS (SELECT 1 FROM demo.ProductPrice_Native)
        OR EXISTS (SELECT 1 FROM demo.SeedState)
     BEGIN
-        THROW 52001, N'Da co du lieu/moc seed khac V3. Khong ghi de. Hay su dung database thu nghiem moi.', 1;
+        THROW 52001, N'Da co du lieu/moc seed khac V4. Khong ghi de. Hay su dung database thu nghiem moi.', 1;
     END;
 
     BEGIN TRY
         BEGIN TRANSACTION;
-        INSERT INTO dbo.Product (ProductID, ProductCode, ProductName, Category) VALUES
-          (101,'CF001',N'Cà phê sữa đá',N'Đồ uống'),
-          (102,'TE002',N'Trà đào cam sả',N'Đồ uống'),
-          (103,'FD003',N'Bánh mì thịt',N'Thức ăn'),
-          (104,'MT004',N'Matcha latte',N'Đồ uống'),
-          (105,'CK005',N'Bánh quy bơ',N'Thức ăn');
+        INSERT INTO dbo.Product (ProductID, ProductName, Category) VALUES
+          (101,N'Cà phê sữa đá',N'Đồ uống'),
+          (102,N'Trà đào cam sả',N'Đồ uống'),
+          (103,N'Bánh mì thịt',N'Thức ăn'),
+          (104,N'Matcha latte',N'Đồ uống'),
+          (105,N'Bánh quy bơ',N'Thức ăn');
 
         INSERT INTO demo.ProductPrice_Manual (ProductID,UnitPrice,CurrencyCode,PriceNote) VALUES
           (101,25000.00,'VND',N'Giá khởi tạo'),
@@ -101,7 +104,7 @@ BEGIN
           (103,28000.00,'VND',N'Giá khởi tạo'),
           (104,45000.00,'VND',N'Giá khởi tạo');
 
-        INSERT INTO demo.SeedState (SetupKey) VALUES (N'TV1_BASELINE_V3');
+        INSERT INTO demo.SeedState (SetupKey) VALUES (N'TV1_BASELINE_V4');
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH

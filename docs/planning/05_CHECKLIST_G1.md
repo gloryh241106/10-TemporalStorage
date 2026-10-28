@@ -6,12 +6,13 @@
 - [ ] Nêu được vì sao chọn bài toán theo dõi giá, không theo dõi lịch sử ProductName.
 - [ ] Chốt ERD Crow's Foot và 0..1 giá hiện tại cho mỗi Product trên từng nhánh.
 - [ ] Nêu rõ không có supertype/subtype ở mô hình này.
+- [ ] Xác nhận chỉ dùng `ProductID` làm mã định danh; `ProductCode` đã loại bỏ khỏi ERD và SQL.
 - [ ] Chốt schema/fk/check và xử lý dữ liệu Product 105 chưa có giá.
 
 ## B. Kiểm tra SQL thật – BẮT BUỘC, chưa hoàn thành trong gói
 - [ ] Ghi thông tin `SELECT @@VERSION` và tên instance SQL Server.
-- [ ] Chạy 00 setup lần đầu trong SSMS không có lỗi, lưu chứng cứ.
-- [ ] Chạy 01 verify nhận PASS và lưu chứng cứ.
+- [ ] Nếu có database V3: sao lưu nếu cần, chạy migration V3→V4; nếu database mới: chạy 00 setup V4. Lưu chứng cứ.
+- [ ] Chạy 01 verify **bản V4** nhận PASS và lưu chứng cứ (ảnh PASS V3 không thay thế).
 - [ ] Chạy lại 00 trên baseline, số dòng không đổi.
 - [ ] Kiểm tra trước khi gắn G2: chưa có Trigger/History/period trên các bảng giá.
 - [ ] Nếu DB tồn tại trước đó: được chủ sở hữu cho phép sử dụng hoặc chuyển sang sandbox mới.

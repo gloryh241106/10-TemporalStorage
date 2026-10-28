@@ -1,6 +1,6 @@
 # Khung kiểm thử G1 – Hoàng chuẩn bị, Kiệt sở hữu và phê duyệt
 
-**Lưu ý:** Đây là mẫu đầu vào, không phải kết quả đã chạy. Kiệt được quyền bổ sung/tinh chỉnh sau G1.
+**Lưu ý:** Đây là mẫu đầu vào cho baseline V4 (chỉ `ProductID`, không `ProductCode`), không phải kết quả đã chạy. Kiệt được quyền bổ sung/tinh chỉnh sau G1.
 
 | Mã | Thao tác/tình huống | Kết quả có thể kiểm chứng | Ai thực hiện |
 |---|---|---|---|

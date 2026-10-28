@@ -1,6 +1,6 @@
 # Hợp đồng dữ liệu G1 - Nhóm 10 / Chủ đề 8
 
-**Trạng thái:** ĐỀ XUẤT CẦN CẢ NHÓM CHỐT G1. Không gọi đây là bằng chứng chạy SQL Server thành công.
+**Trạng thái:** ĐỀ XUẤT CẦN CẢ NHÓM CHỐT G1. Bản thay đổi V4 chưa được chạy trực tiếp trong phiên cập nhật; ảnh PASS trước đó thuộc baseline V3.
 
 ## Phạm vi
 
@@ -10,12 +10,14 @@ Bài toán: theo dõi **giá hiện hành và lịch sử giá** của sản ph�
 
 | Đối tượng | Quy tắc |
 |---|---|
-| `dbo.Product` | `ProductID` PK; mã sản phẩm UNIQUE; tên và loại bắt buộc |
+| `dbo.Product` | `ProductID` là khóa định danh DUY NHẤT (PK), không có `ProductCode`; `ProductName` và `Category` bắt buộc |
 | `demo.ProductPrice_Manual` | PK+FK ProductID, UnitPrice >= 0, CurrencyCode mặc định VND, PriceNote nullable |
 | `demo.ProductPrice_Native` | Cùng business columns/ràng buộc với Manual; **chưa** temporal ở G1 |
-| `demo.SeedState` | Metadata kỹ thuật, marker `TV1_BASELINE_V3`, không thuộc nghiệp vụ |
+| `demo.SeedState` | Metadata kỹ thuật, marker `TV1_BASELINE_V4`, không thuộc nghiệp vụ |
 
 Cardinality cho từng nhánh: `Product ||--o| ProductPrice` (một sản phẩm có 0..1 giá hiện tại trên nhánh; mỗi dòng giá thuộc đúng 1 sản phẩm). Hai nhánh là hai phương án thí nghiệm, không phải hai nguồn giá trong vận hành thương mại thật. Không có supertype/subtype.
+
+**Quyết định G1 V4:** bỏ `ProductCode` vì không có yêu cầu nghiệp vụ riêng; cả hai bảng giá tiếp tục FK về `dbo.Product(ProductID)`. Không thay đổi số dòng hoặc giá R0.
 
 ## Baseline R0 (dữ liệu minh họa, không phải giá thực tế)
 
@@ -48,7 +50,10 @@ SQL Server temporal native dùng UTC **thời điểm bắt đầu giao tác** c
 
 ## Tái lập và an toàn
 
-- Script `00_create_and_seed.sql` chạy lại **không** reset dữ liệu khi đã có marker V3; tuyệt đối không dùng script này như một tool phục hồi sau demo.
+- Với database đã khởi tạo theo V3, chạy `02_migrate_v3_to_v4_once.sql` **trước** `01_verify_setup.sql` V4. Script migration chỉ cho phép ở baseline chưa có G2; không xóa dữ liệu hay reset giá. Nếu database đã được dùng cho G2, dừng và thống nhất phương án mới.
+- Chạy `00_create_and_seed.sql` V4 trực tiếp trên database V3 không tự loại bỏ `ProductCode`, do đó không thay thế migration.
+
+- Script `00_create_and_seed.sql` chạy lại **không** reset dữ liệu khi đã có marker V4; tuyệt đối không dùng script này như một tool phục hồi sau demo.
 - Muốn quay về R0 cần database sandbox/snapshot/backup riêng hoặc tạo mới trên môi trường thử nghiệm, không DROP một CSDL đang có dữ liệu người dùng.
 - `01_verify_setup.sql` chỉ chạy sau seed và **trước** khi Thùy/Trung gắn Trigger hoặc bật Temporal; chạy sau demo có thể FAIL là điều bình thường.
 - `CREATE TABLE`/`DROP TABLE` là DDL, không được ngộ nhận Temporal History có thể tự khôi phục schema đã DROP.
