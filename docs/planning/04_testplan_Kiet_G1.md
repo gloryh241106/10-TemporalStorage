@@ -1,10 +1,10 @@
 # Test Plan G1 – Kiệt (TV4) sở hữu và phê duyệt
 
-**Phiên bản:** 1.0  
+**Phiên bản:** 1.1 (đồng bộ hợp đồng V4)  
 **Người tạo:** Kiệt (TV4)  
-**Ngày tạo:** 2026-10-28  
-**Trạng thái:** ĐÃ DUYỆT – chờ xác nhận chữ ký G1  
-**Tham chiếu:** `03_testplan_G1_for_Kiet.md` (Hoàng soạn khung), `02_team_data_contract.md`
+**Ngày tạo:** 2026-10-28 · **Cập nhật:** 2026-11-13 (Hoàng soạn thay, chờ Kiệt xác nhận)  
+**Trạng thái:** T0 V4 đã chạy lại trên database thử sạch. T6/T7 đã theo `ValidFrom`/`ValidTo` và ba mốc UTC theo mục 10.4 trong Google Docs quy ước. Kiệt xác nhận phần đối chứng sau khi nhận hai nhánh.
+**Tham chiếu:** `02_team_data_contract.md`
 
 ---
 
@@ -30,15 +30,16 @@ Kiểm thử đối chứng hai phương án lưu lịch sử giá sản phẩm:
 
 | Mục | Yêu cầu |
 |---|---|
-| DBMS | SQL Server 2016 (13.x) trở lên |
+| DBMS | SQL Server 2025 (17.x) |
 | Database | `TemporalSeminarDB` |
-| Baseline | Marker `TV1_BASELINE_V3` đã tồn tại trong `demo.SeedState` |
+| Baseline | V4 với 5 sản phẩm, 4 giá ở mỗi nhánh và chưa có giá cho sản phẩm 105 |
 | Trạng thái trước G2 | `01_verify_setup.sql` PASS (chưa có Trigger, chưa có period, chưa có History) |
 | Timezone ghi nhận | **UTC** – dùng `SYSUTCDATETIME()` làm mốc đo |
 
 > **Quy ước timestamp:**
 > - Native Temporal: ghi UTC tại **thời điểm bắt đầu giao tác** (transaction begin)
-> - Trigger thủ công: ghi UTC tại **thời điểm thực thi DML** (có thể nhỏ hơn vài ms so với native)
+> - Trigger thủ công: ghi một mốc UTC tại lúc trigger xử lý mỗi câu DML. Khoảng chênh với thời gian Native tùy giao tác.
+> - Cả hai nhánh dùng `ValidFrom`/`ValidTo` kiểu `DATETIME2(7)`; bản hiện hành có `ValidTo = 9999-12-31 23:59:59.9999999`, không dùng NULL.
 > - Hai semantics này **không ép bằng nhau**; phải ghi rõ khi so sánh
 
 ---
@@ -67,13 +68,13 @@ Kiểm thử đối chứng hai phương án lưu lịch sử giá sản phẩm:
 | Thuộc tính | Giá trị |
 |---|---|
 | **Mục đích** | Xác nhận dữ liệu nền đúng trước khi bắt đầu bất kỳ thao tác nào |
-| **Thời điểm thực hiện** | Ngay sau khi Thùy/Trung gắn cơ chế lịch sử (trước T1) |
+| **Thời điểm thực hiện** | Sau khi nạp R0 và trước khi Thùy hoặc Trung cài cơ chế lưu lịch sử |
 | **Người thực hiện** | Hoàng (TV1) – Kiệt xác nhận output |
 | **Script** | `01_verify_setup.sql` |
 
 **Kết quả kỳ vọng:**
 ```
-VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manual, 4 Native, ProductID=105 chua co gia
+VerificationResult: PASS G1 / T0 - Baseline V4
 ```
 - Bảng `dbo.Product`: đúng 5 dòng
 - Bảng `demo.ProductPrice_Manual`: đúng 4 dòng (101–104), **không có** dòng 105
@@ -82,7 +83,7 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 - Chưa có Trigger trên bất kỳ bảng giá nào
 - Chưa có cơ chế temporal trên bất kỳ bảng giá nào
 
-**Bằng chứng cần lưu:** Screenshot SSMS output `01_verify_setup.sql` chạy PASS
+**Bằng chứng G1:** [Output sqlcmd ngày 10/11](../../evidence/G1_V4_sqlcmd.txt) và [lần chạy lại ngày 13/11](../../evidence/G1_V4_T0_rerun_20261113.txt). Khi đối chứng trên DB khác, lưu thêm output T0 của lần chạy đó.
 
 ---
 
@@ -100,10 +101,9 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | Kiểm tra | Nhánh Manual (Trigger) | Nhánh Native (Temporal) |
 |---|---|---|
 | Bảng Current sau INSERT | Có 1 dòng: 105 = 19.000 VND | Có 1 dòng: 105 = 19.000 VND |
-| Bảng History sau INSERT | **0 dòng** cho ProductID=105 (INSERT thuần không tạo History) | **0 dòng** cho ProductID=105 trong History table |
-| Lý do | Trigger thường chỉ kích hoạt khi UPDATE/DELETE; INSERT lần đầu không có "phiên bản cũ" | Native temporal chỉ lưu phiên bản cũ khi có UPDATE/DELETE |
-
-> ⚠️ Thùy cần công khai rõ: Trigger có xử lý INSERT không? Nếu có logic INSERT trong Trigger, cần giải thích rõ khi nào mới bắt đầu lưu History.
+| Bảng History sau INSERT | **0 dòng** cho ProductID=105 | **0 dòng** cho ProductID=105 trong History table |
+| Period của dòng mới | Trigger INSERT mở phiên bản đầu: `ValidFrom` = mốc UTC của câu DML, `ValidTo` = giá trị cực đại | `ValidFrom` = UTC lúc bắt đầu giao tác, `ValidTo` = giá trị cực đại |
+| Lý do | Theo mục 10.3 trong Google Docs quy ước, INSERT chỉ mở phiên bản; chưa có phiên bản cũ để đưa vào History | Native chỉ đưa phiên bản cũ vào History khi UPDATE/DELETE |
 
 ---
 
@@ -114,7 +114,7 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | **Mục đích** | Kiểm tra cơ chế lưu lịch sử khi có thay đổi đơn dòng |
 | **Người thực hiện** | Thùy (nhánh Manual), Trung (nhánh Native) |
 | **DML thực hiện** | `UPDATE ... SET UnitPrice = 27000.00 WHERE ProductID = 101` |
-| **Yêu cầu** | Ghi lại timestamp UTC `@t2_utc = SYSUTCDATETIME()` ngay trước khi UPDATE |
+| **Yêu cầu** | Kiệt ghi `@t_ready = SYSUTCDATETIME()` sau khi cả hai nhánh sẵn sàng và trước khi bắt đầu T2 |
 
 **Kết quả kỳ vọng:**
 
@@ -122,8 +122,8 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 |---|---|---|
 | Current table sau UPDATE | 101 = **27.000** VND | 101 = **27.000** VND |
 | History sau UPDATE | Có 1 dòng: 101 = **25.000** VND (phiên bản cũ) | Có 1 dòng: 101 = **25.000** VND trong History table |
-| Timestamp phiên bản cũ | Ghi theo quy ước Trigger (UTC DML time) | `ValidFrom` = UTC transaction begin, `ValidTo` = UTC lúc kết thúc hiệu lực |
-| Timestamp phiên bản mới | N/A (Current table) | `ValidFrom` = UTC transaction begin T2 |
+| Timestamp phiên bản cũ | Giữ `ValidFrom`; chốt `ValidTo` theo mốc UTC của câu DML | Giữ `ValidFrom`; `ValidTo` là UTC lúc bắt đầu giao tác T2 |
+| Timestamp phiên bản mới | `ValidFrom` lấy cùng mốc UTC với lúc đóng phiên bản cũ | `ValidFrom` là UTC lúc bắt đầu giao tác T2 |
 
 ---
 
@@ -134,7 +134,7 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | **Mục đích** | Kiểm tra lịch sử tích lũy qua nhiều lần thay đổi; đảm bảo 2 phiên bản cũ được lưu |
 | **Người thực hiện** | Thùy (nhánh Manual), Trung (nhánh Native) |
 | **DML thực hiện** | `UPDATE ... SET UnitPrice = 30000.00 WHERE ProductID = 101` |
-| **Yêu cầu** | ⚠️ Phải là **giao tác riêng biệt** với T2; ghi `@t3_utc = SYSUTCDATETIME()` trước UPDATE |
+| **Yêu cầu** | ⚠️ Phải là **giao tác riêng biệt** với T2. Kiệt ghi `@t_between` sau commit T2 và trước khi bắt đầu T3, rồi ghi `@t_after_T3` sau commit T3 |
 
 **Kết quả kỳ vọng:**
 
@@ -143,7 +143,7 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | Current table sau T3 | 101 = **30.000** VND | 101 = **30.000** VND |
 | History sau T3 | **2 dòng** cho 101: 25.000 và 27.000 | **2 dòng** trong History: 25.000 và 27.000 |
 | Thứ tự lịch sử | Có thể truy vấn theo thứ tự thời gian | `ValidFrom` tăng dần theo thứ tự |
-| Không trùng giao tác | `@t2_utc ≠ @t3_utc` → có thể phân biệt bằng AS OF | ValidFrom của 2 bản ghi khác nhau |
+| Không trùng giao tác | `@t_ready < @t_between < @t_after_T3` → phân biệt được bằng AS OF | ValidFrom của 2 bản ghi khác nhau |
 
 ---
 
@@ -154,7 +154,7 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | **Mục đích** | Kiểm tra hành vi khi xóa dữ liệu – bản ghi cũ có còn trong History không |
 | **Người thực hiện** | Thùy (nhánh Manual), Trung (nhánh Native) |
 | **DML thực hiện** | `DELETE FROM ... WHERE ProductID = 104` |
-| **Yêu cầu** | Ghi `@t4_utc = SYSUTCDATETIME()` trước DELETE |
+| **Yêu cầu** | Ghi period của dòng 104 trong History sau DELETE |
 
 **Kết quả kỳ vọng:**
 
@@ -194,21 +194,23 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 |---|---|
 | **Mục đích** | Kiểm tra khả năng truy vấn "giá tại một thời điểm trong quá khứ" |
 | **Người thực hiện** | **Kiệt (TV4)** – tự viết và chạy |
-| **Phụ thuộc** | T2 và T3 đã chạy xong; đã ghi `@t2_utc` và `@t3_utc` |
+| **Phụ thuộc** | T2 và T3 đã commit ở nhánh đang kiểm tra; đã ghi mốc UTC của từng lần chạy |
 
 **Các mốc thời gian cần kiểm tra:**
 
 | Mốc | Mô tả | Kết quả kỳ vọng (cả 2 nhánh) |
 |---|---|---|
-| Trước T2 (`@t2_utc - 1 giây`) | Khi giá còn là 25.000 | Trả về 101 = **25.000** VND |
-| Giữa T2 và T3 (`@t2_utc + X`) | Khi giá là 27.000 | Trả về 101 = **27.000** VND |
-| Sau T3 (`@t3_utc + 1 giây`) | Khi giá là 30.000 | Trả về 101 = **30.000** VND |
+| `@t_ready` | Sau khi cả hai nhánh sẵn sàng, trước khi bắt đầu T2 | Trả về 101 = **25.000** VND |
+| `@t_between` | Sau commit T2 và trước khi bắt đầu T3 | Trả về 101 = **27.000** VND |
+| `@t_after_T3` | Sau commit T3 | Trả về 101 = **30.000** VND |
 
 **Cú pháp kỳ vọng:**
-- Native: `SELECT * FROM demo.ProductPrice_Native FOR SYSTEM_TIME AS OF @timestamp WHERE ProductID = 101`
-- Manual: Query thủ công trên ManualHistory với điều kiện `StartTime <= @timestamp AND (EndTime > @timestamp OR EndTime IS NULL)`
+- Native: `SELECT * FROM demo.ProductPrice_Native FOR SYSTEM_TIME AS OF @t WHERE ProductID = 101`
+- Manual: hợp nhất Current và History bằng `UNION ALL` (cùng danh sách cột), bỏ phiên bản có `ValidFrom = ValidTo`, rồi lọc `ProductID = 101 AND ValidFrom <= @t AND ValidTo > @t`.
 
-> ⚠️ Chọn `@timestamp` nằm **giữa** hai sự kiện đã commit, không phải đúng bằng thời điểm transaction.
+Hai nhánh dùng chung một bộ mốc: T2 đã commit trên **cả hai** nhánh rồi mới ghi `@t_between`; T3 chạy trên cả hai nhánh sau `@t_between`, rồi mới ghi `@t_after_T3`. Nếu một nhánh phải chạy ở buổi khác, ghi một bộ ba mốc riêng cho nhánh đó và chạy `T6_T7_time_travel_queries.sql` riêng với bộ mốc ấy.
+
+Không dùng mốc tự đặt hay "trước T2 trừ 1 giây": mốc đó có thể rơi vào lúc cơ chế lịch sử chưa bật, khi đó AS OF trả về rỗng. Nếu cần kiểm tra đúng biên, tách thành ca riêng và dùng cột period thực tế.
 
 ---
 
@@ -220,37 +222,35 @@ VerificationResult: PASS G1 - TV1 baseline V3 khop tung dong; 5 Product, 4 Manua
 | **Người thực hiện** | **Kiệt (TV4)** – tự viết và chạy |
 | **Phụ thuộc** | T2 và T3 đã chạy; có đủ các phiên bản lịch sử |
 
-**Kết quả kỳ vọng:**
-- Truy vấn trả về **tất cả phiên bản** của ProductID=101 từ R0 đến hiện tại
-- Có thể quan sát được các phiên bản: 25.000 → 27.000 → 30.000 theo thứ tự thời gian
-- Giải thích rõ biên khoảng: `[ValidFrom, ValidTo)` (inclusive start, exclusive end) với native
+**Khoảng kiểm tra:** cận dưới `@s = @t_ready`; cận trên `@e` = `ValidFrom` của phiên bản 30.000 ở từng nhánh (đọc từ bảng Current).
+
+| Mệnh đề | Điều kiện ([Microsoft Learn](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/query-data?view=sql-server-ver17)) | Kỳ vọng cả 2 nhánh |
+|---|---|---|
+| **T7 – `FROM @s TO @e`** (ca chính) | `ValidFrom < @e AND ValidTo > @s` | **25.000, 27.000** |
+| Phụ lục – `BETWEEN @s AND @e` | `ValidFrom <= @e AND ValidTo > @s` | 25.000, 27.000, 30.000 (bản 30.000 bắt đầu đúng `@e` vẫn được lấy) |
+| Phụ lục – `CONTAINED IN (@s, @e)` | `ValidFrom >= @s AND ValidTo <= @e` | 27.000 (bản 25.000 bắt đầu trước `@s`) |
+
+Nhánh Manual dùng cùng điều kiện trên tập `UNION ALL` của Current và History.
 
 **Cú pháp kỳ vọng (native):**
 ```sql
-SELECT * FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME BETWEEN @start AND @end
+SELECT ProductID, UnitPrice, ValidFrom, ValidTo FROM demo.ProductPrice_Native
+FOR SYSTEM_TIME FROM @start TO @end
 WHERE ProductID = 101
 ORDER BY ValidFrom;
--- Hoặc: FOR SYSTEM_TIME FROM @start TO @end
--- Hoặc: FOR SYSTEM_TIME CONTAINED IN (@start, @end)
 ```
 
 ---
 
 ## 5. Script kiểm chứng do Kiệt chuẩn bị (dùng sau G2)
 
-> Đây là **kế hoạch script** – sẽ được viết chi tiết trong `sql/04_testing/` sau G2.
+Các script trong `sql/04_testing/` chỉ đọc. DML của T1–T5 do Thùy và Trung chạy trên nhánh của mình. Chạy và ghi kết quả sau khi nhánh liên quan được bàn giao. Nhánh chưa sẵn sàng được báo `BLOCKED`, không báo FAIL.
 
 | Script | Nội dung |
 |---|---|
-| `T0_verify_baseline.sql` | Chạy lại 01_verify_setup; xác nhận trạng thái trước G2 |
-| `T1_insert_105.sql` | INSERT 105; query Current và History ngay sau |
-| `T2_update_101_v1.sql` | Ghi `@t2_utc`; UPDATE 101→27.000; query kết quả |
-| `T3_update_101_v2.sql` | Ghi `@t3_utc`; UPDATE 101→30.000 (giao tác mới); query |
-| `T4_delete_104.sql` | Ghi `@t4_utc`; DELETE 104; query Current và History |
-| `T5_update_multirow.sql` | UPDATE 102+103 cùng lúc; query cả 2 dòng Current và History |
-| `T6_time_travel_AS_OF.sql` | Time Travel 101 tại 3 mốc; so sánh 2 nhánh |
-| `T7_range_query.sql` | Truy vấn khoảng UTC cho 101; so sánh 2 nhánh |
+| `01_verify_setup.sql` | Kiểm tra T0 trước G2. |
+| `T1_T5_verify_dml_events.sql` | Đọc Current và History của hai nhánh sau từng sự kiện T1–T5 |
+| `T6_T7_time_travel_queries.sql` | Nhận 3 mốc UTC; chạy AS OF, `FROM ... TO` và hai mệnh đề phụ lục; in bảng Expected/Actual/Status cho từng nhánh |
 
 ---
 
@@ -260,14 +260,14 @@ Mỗi test case sau G2 cần lưu đầy đủ:
 
 | Test | Script chạy | Output/Ảnh SSMS | Before State | After State | UTC timestamp | Pass/Fail | Người xác nhận |
 |---|---|---|---|---|---|---|---|
-| T0 | `01_verify_setup.sql` | | | | | | Hoàng + Kiệt |
-| T1 | `T1_insert_105.sql` | | | | | | Kiệt |
-| T2 | `T2_update_101_v1.sql` | | | | | | Kiệt |
-| T3 | `T3_update_101_v2.sql` | | | | | | Kiệt |
-| T4 | `T4_delete_104.sql` | | | | | | Kiệt |
-| T5 | `T5_update_multirow.sql` | | | | | | Kiệt |
-| T6 | `T6_time_travel_AS_OF.sql` | | | | | | Kiệt |
-| T7 | `T7_range_query.sql` | | | | | | Kiệt |
+| T0 | `01_verify_setup.sql` | [G1_V4_T0_rerun_20261113.txt](../../evidence/G1_V4_T0_rerun_20261113.txt) | DB thử trống | 5 / 4 / 4, 105 chưa có giá | xem log | PASS | Hoàng chạy, chờ Kiệt xác nhận |
+| T1 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
+| T2 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
+| T3 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
+| T4 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
+| T5 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
+| T6 | `T6_T7_time_travel_queries.sql` | | | | | NOT RUN | Kiệt |
+| T7 | `T6_T7_time_travel_queries.sql` | | | | | NOT RUN | Kiệt |
 
 ---
 
@@ -278,9 +278,9 @@ Sau khi hoàn thành T0–T7, lập bảng so sánh theo 6 tiêu chí sau:
 | # | Tiêu chí | Mô tả |
 |---|---|---|
 | C1 | **Tính tự động hóa** | Cơ chế có tự lưu lịch sử không hay cần lập trình thêm? |
-| C2 | **Độ chính xác timestamp** | Timestamp lưu đúng thời điểm nào? Có bất nhất không? |
-| C3 | **Cú pháp truy vấn lịch sử** | Query Time Travel đơn giản hay phức tạp? Cần self-join không? |
-| C4 | **Khả năng bảo trì** | Khi schema thay đổi (thêm cột), cần sửa bao nhiêu nơi? |
+| C2 | **Ý nghĩa timestamp** | Mốc ghi theo đầu giao tác (Native) hay lúc chạy câu DML (Trigger)? Hệ quả khi truy vấn AS OF |
+| C3 | **Cách truy vấn lịch sử** | `FOR SYSTEM_TIME` so với `UNION ALL` + điều kiện khoảng tự viết |
+| C4 | **Phần phải tự bảo trì** | Khi thêm cột giá hoặc ghi chú, cần sửa bao nhiêu nơi (bảng History, trigger, truy vấn)? |
 | C5 | **Tính linh hoạt** | Có thể tùy chỉnh logic lịch sử không (lọc điều kiện, giá trị đặc biệt)? |
 | C6 | **Giới hạn và ràng buộc** | Giới hạn theo phiên bản SQL Server? Retention policy? Không thể UPDATE History? |
 
@@ -290,11 +290,11 @@ Sau khi hoàn thành T0–T7, lập bảng so sánh theo 6 tiêu chí sau:
 
 | Thành viên | Vai trò | Xác nhận | Ngày |
 |---|---|---|---|
-| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ ĐÃ XÁC NHẬN | 2026-10-28 |
+| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ Đã xác nhận bản 1.0 (28/10). ⬜ Chờ xác nhận bản 1.1 | |
 | Thùy (TV2) | Hiểu timestamp ManualHistory và multi-row | ⬜ Chờ ký | |
 | Trung (TV3) | Xác nhận period DATETIME2 và SQL Server version | ⬜ Chờ ký | |
-| Hoàng (TV1) | Ghi quyết định G1 và ngày chốt | ⬜ Chờ ký | |
+| Hoàng (TV1) | Ghi quyết định G1 và ngày chốt | Đã ghi quy ước và log T0 | 2026-11-10 |
 
 ---
 
-*Tài liệu này do Kiệt (TV4) sở hữu. Cập nhật lần cuối: 2026-10-28.*
+*Kiệt (TV4) sở hữu test plan. Bản 1.1 do Hoàng cập nhật ngày 13/11/2026 theo hợp đồng V4; Kiệt rà và xác nhận trước G2.*

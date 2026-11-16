@@ -1,10 +1,12 @@
 # Hợp đồng dữ liệu G1 - Nhóm 10 / Chủ đề 8
 
-**Trạng thái:** ĐỀ XUẤT CẦN CẢ NHÓM CHỐT G1. Bản thay đổi V4 chưa được chạy trực tiếp trong phiên cập nhật; ảnh PASS trước đó thuộc baseline V3.
+**Trạng thái:** Quy ước chốt ngày 10/11/2026. Baseline V4 đã qua T0 trên SQL Server 2025 Standard Developer, build 17.0.1145.4. Xem [kết quả chạy G1](../../evidence/G1_V4_sqlcmd.txt). Ngày 13/11 chạy lại T0 trên build 17.0.1155.3 vẫn PASS ([log](../../evidence/G1_V4_T0_rerun_20261113.txt)).
 
 ## Phạm vi
 
 Bài toán: theo dõi **giá hiện hành và lịch sử giá** của sản phẩm trong quán đồ uống/thức ăn. `dbo.Product` là bảng danh mục thông thường, **không** lưu lịch sử đổi tên. Không nghiên cứu lưu giá hiệu lực tương lai (application-time/valid-time) trong phần demo native.
+
+Môi trường chốt cho cả nhóm: **SQL Server 2025 (17.x)**, compatibility level 170. T0 kiểm tra đúng phiên bản này; script G2 và G3 cũng chạy trên SQL Server 2025.
 
 ## Đối tượng TV1 sở hữu
 
@@ -13,11 +15,10 @@ Bài toán: theo dõi **giá hiện hành và lịch sử giá** của sản ph�
 | `dbo.Product` | `ProductID` là khóa định danh DUY NHẤT (PK), không có `ProductCode`; `ProductName` và `Category` bắt buộc |
 | `demo.ProductPrice_Manual` | PK+FK ProductID, UnitPrice >= 0, CurrencyCode mặc định VND, PriceNote nullable |
 | `demo.ProductPrice_Native` | Cùng business columns/ràng buộc với Manual; **chưa** temporal ở G1 |
-| `demo.SeedState` | Metadata kỹ thuật, marker `TV1_BASELINE_V4`, không thuộc nghiệp vụ |
 
 Cardinality cho từng nhánh: `Product ||--o| ProductPrice` (một sản phẩm có 0..1 giá hiện tại trên nhánh; mỗi dòng giá thuộc đúng 1 sản phẩm). Hai nhánh là hai phương án thí nghiệm, không phải hai nguồn giá trong vận hành thương mại thật. Không có supertype/subtype.
 
-**Quyết định G1 V4:** bỏ `ProductCode` vì không có yêu cầu nghiệp vụ riêng; cả hai bảng giá tiếp tục FK về `dbo.Product(ProductID)`. Không thay đổi số dòng hoặc giá R0.
+G1 V4 dùng `ProductID` làm mã định danh và FK chung. Hai nhánh bắt đầu với cùng dữ liệu R0. T0 kiểm tra trực tiếp dữ liệu và metadata của ba bảng nghiệp vụ.
 
 ## Baseline R0 (dữ liệu minh họa, không phải giá thực tế)
 
@@ -34,8 +35,8 @@ Tất cả giá VND. Cặp 101 và 102 được chọn cùng giá để kiểm c
 ## Quyền sở hữu và cấm chồng lấn
 
 - **Hoàng (TV1):** giữ nguyên business columns, schema/seed/verify, ERD, báo cáo nền; chỉ giao khi G1 PASS trên SQL Server thực.
-- **Thùy (TV2):** tạo ManualHistory và Trigger; tự quyết định khóa History và semantics của khoảng thời gian **có thỏa thuận với Kiệt**. `ProductID` riêng lẻ không thể là khóa duy nhất cho mọi phiên bản History.
-- **Trung (TV3):** bổ sung period `DATETIME2(7)` và bật `SYSTEM_VERSIONING` trên bảng Native; không sửa giá baseline trước G1; History do SQL Server quản lý. Không tự tạo PK/FK vào native History.
+- **Thùy (TV2):** tạo `demo.ProductPrice_ManualHistory`, dùng `HistoryID BIGINT IDENTITY` làm PK kỹ thuật và `ProductID` để tra phiên bản. Current và History dùng `ValidFrom`/`ValidTo` kiểu `DATETIME2(7)` theo UTC. Trigger xử lý theo tập qua `inserted` và `deleted`, lấy một mốc UTC mỗi câu DML. Khi truy vấn, Kiệt dùng cùng danh sách cột từ Current và History qua `UNION ALL`. Khi bật nhánh Manual, các dòng R0 đang có trong Current được gán `ValidFrom` bằng một mốc UTC chung lấy lúc bật và `ValidTo` = `9999-12-31 23:59:59.9999999`; History bắt đầu rỗng. Không dùng NULL cho `ValidTo`.
+- **Trung (TV3):** bổ sung period `ValidFrom`/`ValidTo` kiểu `DATETIME2(7)` và bật `SYSTEM_VERSIONING` trên `demo.ProductPrice_Native`. SQL Server tạo và quản lý `demo.ProductPrice_NativeHistory`. Giữ `INFINITE` cho lần đối chứng chính.
 - **Kiệt (TV4):** thiết kế test plan từ G1, chạy đối chứng sau G2, xác nhận truy vấn `AS OF`, truy vấn khoảng, và so sánh trên bằng chứng. Không thay code của TV2/TV3 để 'làm xanh' test.
 
 ## Điểm đặc biệt về thời gian
@@ -44,24 +45,14 @@ SQL Server temporal native dùng UTC **thời điểm bắt đầu giao tác** c
 
 ## Gates
 
-- **G1 (Hoàng + Kiệt):** xác nhận scope; schema; SQL Server version; setup được chạy trên instance test; `01_verify_setup.sql` PASS; test plan được duyệt.
-- **G2 (Thùy và Trung song song):** mỗi nhánh script tạo cơ chế lịch sử, query và evidence riêng; Kiệt tiếp nhận kết quả kiểm thử độc lập.
-- **G3:** Kiệt đối chứng, kiểm tra timestamp/Time Travel; Hoàng tích hợp báo cáo và slide.
+- **G1:** Hoàng bàn giao schema và dữ liệu R0 đã qua `01_verify_setup.sql` (T0). Kiệt chuẩn bị ca kiểm thử từ hợp đồng này.
+- **G2:** Thùy và Trung soạn song song. Mỗi người chạy nhánh riêng trên baseline đã qua T0. Bàn giao cho Kiệt khi có script cài đặt và kết quả thử UPDATE cho thấy dòng cũ đã vào History.
+- **G3:** Kiệt chạy từng nhánh khi sẵn sàng và đối chứng khi đủ hai nhánh. Hoàng soạn phần lý thuyết, ERD và slide mở đầu song song, rồi ghép kết luận từ kết quả G3.
 
 ## Tái lập và an toàn
 
-- Với database đã khởi tạo theo V3, chạy `02_migrate_v3_to_v4_once.sql` **trước** `01_verify_setup.sql` V4. Script migration chỉ cho phép ở baseline chưa có G2; không xóa dữ liệu hay reset giá. Nếu database đã được dùng cho G2, dừng và thống nhất phương án mới.
-- Chạy `00_create_and_seed.sql` V4 trực tiếp trên database V3 không tự loại bỏ `ProductCode`, do đó không thay thế migration.
+- Khởi tạo V4 trên database thử nghiệm mới hoặc trống. Nếu `TemporalSeminarDB` đã có dữ liệu, giữ nguyên và chạy trên một database thử khác.
+- `00_create_and_seed.sql` từ chối database có đối tượng người dùng. Schema và seed được áp dụng trong cùng giao tác.
+- Chạy `01_verify_setup.sql` ngay sau setup và trước G2. `02_demo_current_only.sql` chỉ ghi vào bảng tạm của phiên chạy.
 
-- Script `00_create_and_seed.sql` chạy lại **không** reset dữ liệu khi đã có marker V4; tuyệt đối không dùng script này như một tool phục hồi sau demo.
-- Muốn quay về R0 cần database sandbox/snapshot/backup riêng hoặc tạo mới trên môi trường thử nghiệm, không DROP một CSDL đang có dữ liệu người dùng.
-- `01_verify_setup.sql` chỉ chạy sau seed và **trước** khi Thùy/Trung gắn Trigger hoặc bật Temporal; chạy sau demo có thể FAIL là điều bình thường.
-- `CREATE TABLE`/`DROP TABLE` là DDL, không được ngộ nhận Temporal History có thể tự khôi phục schema đã DROP.
-
-## Quyết định phải ký chốt tại G1
-
-- [ ] Cho phép Product không có giá hiện tại (0..1) - đề xuất CÓ.
-- [ ] Chỉ lịch sử bảng giá, không lịch sử tên Product - đề xuất CÓ.
-- [ ] Chốt timestamp/interval semantics cho ManualHistory; `DATETIME2(7)` cho native.
-- [ ] Chốt test plan T0–T7 và trách nhiệm bằng chứng.
-- [ ] Chốt SQL Server edition/version/test environment; các tính năng retention tùy phiên bản.
+Quy ước làm việc và tiêu chí bàn giao đầy đủ nằm trong [tab Đồ án Lý thuyết](https://docs.google.com/document/d/1mPEMmDRuefvWg4WnW67O9pyIm1HDXP-jaOmJqN2wasI/edit?tab=t.0).

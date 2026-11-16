@@ -1,182 +1,238 @@
 /*
 ================================================================================
 CSC12003 | Nhom 10 | Chu de 8 | Kiet (TV4)
-Script: T6_T7_time_travel_queries.sql
-Muc dich: Time Travel Queries – phan Kiet tu thiet ke va tu chay.
-           CHAY SAU khi T2 va T3 da hoan thanh va co UTC timestamp.
-           
-Truoc khi chay, dien cac gia tri UTC nay tu bang ghi moc:
-  @t_before_T2 : moc UTC truoc khi Thuy/Trung UPDATE 101 lan 1
-  @t_after_T2  : moc UTC sau khi UPDATE 101 lan 1 (gia 27000 da co hieu luc)
-  @t_before_T3 : moc UTC truoc khi Thuy/Trung UPDATE 101 lan 2
-  @t_after_T3  : moc UTC sau khi UPDATE 101 lan 2 (gia 30000 da co hieu luc)
-
-Quy uoc: Chon cac moc nam GIUA cac su kien (cach moi bien de hon 1 giay).
-         Khong chon chinh xac bang timestamp cua transaction.
+Script : T6_T7_time_travel_queries.sql
+Giai doan: G3 - chi doc, khong thay doi du lieu
+Dieu kien truoc khi chay:
+  - Nhanh can kiem tra da qua T1-T5 (Native: SYSTEM_VERSIONING = ON;
+    Manual: co demo.ProductPrice_ManualHistory va cot ValidFrom/ValidTo
+    tren ca Current lan History, theo Google Docs quy uoc, muc 10.3).
+  - Da ghi 3 moc UTC tu cung SQL Server (SELECT SYSUTCDATETIME()):
+      @t_ready    : sau khi ca hai nhanh san sang, TRUOC khi bat dau T2
+      @t_between  : sau commit T2, TRUOC khi bat dau T3
+      @t_after_T3 : sau commit T3
+Doi tuong doc: demo.ProductPrice_Native (+ history), demo.ProductPrice_Manual,
+               demo.ProductPrice_ManualHistory
+Ket qua ky vong:
+  T6 AS OF  : 25000 / 27000 / 30000 tai 3 moc, ca hai nhanh.
+  T7 FROM..TO [@t_ready, ValidFrom cua ban 30000): 25000, 27000.
+  Phu luc (cung khoang):
+     BETWEEN      -> 25000, 27000, 30000 (ban bat dau dung can tren van duoc lay)
+     CONTAINED IN -> 27000 (ban 25000 bat dau truoc @t_ready)
+Ngu nghia khoang [ValidFrom, ValidTo):
+  AS OF t        : ValidFrom <= t AND ValidTo > t
+  FROM a TO b    : ValidFrom <  b AND ValidTo > a
+  BETWEEN a AND b: ValidFrom <= b AND ValidTo > a
+  CONTAINED IN   : ValidFrom >= a AND ValidTo <= b
+  Nhanh Manual bo phien ban do dai 0 (ValidFrom = ValidTo) nhu SQL Server.
 ================================================================================
 */
 USE [TemporalSeminarDB];
 GO
 SET NOCOUNT ON;
 
--- ============================================================
--- BUOC 1: Dien moc UTC thuc te da ghi duoc
--- Thay the bang gia tri thuc te tu ban ghi moc cua ban
--- ============================================================
-DECLARE @t_before_T2 DATETIME2(7) = '2026-11-XX XX:XX:XX.XXXXXXX'; -- Truoc UPDATE 101 lan 1
-DECLARE @t_after_T2  DATETIME2(7) = 'YYYY-MM-DD HH:MM:SS.XXXXXXX'; -- Sau UPDATE, gia 27000
-DECLARE @t_before_T3 DATETIME2(7) = 'YYYY-MM-DD HH:MM:SS.XXXXXXX'; -- Truoc UPDATE 101 lan 2
-DECLARE @t_after_T3  DATETIME2(7) = 'YYYY-MM-DD HH:MM:SS.XXXXXXX'; -- Sau UPDATE, gia 30000
+-- BUOC 1: Dien 3 moc UTC thuc te cua lan chay (khong dung moc tu dat).
+DECLARE @t_ready    DATETIME2(7) = NULL;  -- vi du '2026-11-25 02:10:00.0000000'
+DECLARE @t_between  DATETIME2(7) = NULL;
+DECLARE @t_after_T3 DATETIME2(7) = NULL;
 
--- Moc kiểm tra trung gian (dung cho T6):
--- t_check_1 = @t_before_T2 - 1 giay  => ky vong 25000
--- t_check_2 = giua @t_after_T2 va @t_before_T3 => ky vong 27000
--- t_check_3 = @t_after_T3 + 1 giay   => ky vong 30000
+IF @t_ready IS NULL OR @t_between IS NULL OR @t_after_T3 IS NULL
+    THROW 54000, N'Dien du 3 moc UTC @t_ready, @t_between, @t_after_T3 truoc khi chay.', 1;
 
-DECLARE @t_check_1 DATETIME2(7) = DATEADD(SECOND, -1, @t_before_T2);
-DECLARE @t_check_2 DATETIME2(7) = DATEADD(MILLISECOND,
-    DATEDIFF(MILLISECOND, @t_after_T2, @t_before_T3) / 2, @t_after_T2);
-DECLARE @t_check_3 DATETIME2(7) = DATEADD(SECOND, 1, @t_after_T3);
+IF NOT (@t_ready < @t_between AND @t_between < @t_after_T3)
+    THROW 54001, N'Cac moc UTC phai tang dan: @t_ready < @t_between < @t_after_T3.', 1;
 
-PRINT N'=== [KIET] T6: TIME TRAVEL QUERY – AS OF ===';
-PRINT N'Moc t_check_1 (ky vong 25000): ' + CONVERT(NVARCHAR(40), @t_check_1, 126);
-PRINT N'Moc t_check_2 (ky vong 27000): ' + CONVERT(NVARCHAR(40), @t_check_2, 126);
-PRINT N'Moc t_check_3 (ky vong 30000): ' + CONVERT(NVARCHAR(40), @t_check_3, 126);
-PRINT N'';
+DECLARE @Result TABLE (
+    TestCase  NVARCHAR(20),
+    Branch    NVARCHAR(10),
+    Point     NVARCHAR(60),
+    Expected  NVARCHAR(60),
+    Actual    NVARCHAR(200),
+    Status    NVARCHAR(10)
+);
 
--- ============================================================
--- T6-A: Nhanh Native – FOR SYSTEM_TIME AS OF
--- ============================================================
-PRINT N'--- T6-A: Nhanh Native FOR SYSTEM_TIME AS OF ---';
+DECLARE @Marks TABLE (Seq INT, Label NVARCHAR(20), At DATETIME2(7), Expected DECIMAL(12,2));
+INSERT INTO @Marks VALUES
+    (1, N't_ready',    @t_ready,    25000),
+    (2, N't_between',  @t_between,  27000),
+    (3, N't_after_T3', @t_after_T3, 30000);
 
-PRINT N'Tai t_check_1 (ky vong: 25000):';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME AS OF @t_check_1
-WHERE ProductID = 101;
+DECLARE @NativeReady BIT =
+    CASE WHEN EXISTS (SELECT 1 FROM sys.tables
+                      WHERE object_id = OBJECT_ID(N'demo.ProductPrice_Native')
+                        AND temporal_type = 2) THEN 1 ELSE 0 END;
 
-PRINT N'Tai t_check_2 (ky vong: 27000):';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME AS OF @t_check_2
-WHERE ProductID = 101;
+DECLARE @ManualReady BIT =
+    CASE WHEN OBJECT_ID(N'demo.ProductPrice_ManualHistory', N'U') IS NOT NULL
+          AND COL_LENGTH(N'demo.ProductPrice_Manual', N'ValidFrom') IS NOT NULL
+          AND COL_LENGTH(N'demo.ProductPrice_Manual', N'ValidTo') IS NOT NULL
+          AND COL_LENGTH(N'demo.ProductPrice_ManualHistory', N'ValidFrom') IS NOT NULL
+          AND COL_LENGTH(N'demo.ProductPrice_ManualHistory', N'ValidTo') IS NOT NULL
+         THEN 1 ELSE 0 END;
 
-PRINT N'Tai t_check_3 (ky vong: 30000):';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME AS OF @t_check_3
-WHERE ProductID = 101;
+-- Dynamic SQL so the script still compiles before G2 exists on a branch.
+DECLARE @NativeAll NVARCHAR(MAX) = N'
+    SELECT ProductID, UnitPrice, ValidFrom, ValidTo
+    FROM demo.ProductPrice_Native FOR SYSTEM_TIME ALL
+    WHERE ProductID = 101';
 
--- ============================================================
--- T6-B: Nhanh Manual – Query thu cong tren ManualHistory
--- Thuy can xac nhan ten cot StartTime/EndTime chinh xac
--- ============================================================
-PRINT N'';
-PRINT N'--- T6-B: Nhanh Manual – Query thu cong ---';
-PRINT N'  (Thuy can xac nhan ten cot StartTime/EndTime va semantics)';
+DECLARE @ManualAll NVARCHAR(MAX) = N'
+    SELECT ProductID, UnitPrice, ValidFrom, ValidTo
+    FROM (
+        SELECT ProductID, UnitPrice, ValidFrom, ValidTo FROM demo.ProductPrice_Manual
+        UNION ALL
+        SELECT ProductID, UnitPrice, ValidFrom, ValidTo FROM demo.ProductPrice_ManualHistory
+    ) AS v
+    WHERE ProductID = 101 AND ValidFrom < ValidTo';
 
-IF OBJECT_ID(N'demo.ProductPrice_ManualHistory', N'U') IS NOT NULL
+-- Show every version of 101 per branch, for the evidence log.
+IF @NativeReady = 1
 BEGIN
-    -- Query dang tong quat – Thuy xac nhan ten cot dung
-    -- Gia dinh cot: ProductID, UnitPrice, StartTime (DATETIME2), EndTime (DATETIME2 NULL = current)
-
-    PRINT N'Tai t_check_1 (ky vong: 25000 – xem trong ManualHistory hoac Current):';
-    SELECT *
-    FROM demo.ProductPrice_ManualHistory
-    WHERE ProductID = 101
-      AND StartTime <= @t_check_1
-      AND (EndTime > @t_check_1 OR EndTime IS NULL);
-    -- Neu khong co ket qua tu History, co the la dang trong Current: xem ProductPrice_Manual
-
-    PRINT N'Tai t_check_2 (ky vong: 27000):';
-    SELECT *
-    FROM demo.ProductPrice_ManualHistory
-    WHERE ProductID = 101
-      AND StartTime <= @t_check_2
-      AND (EndTime > @t_check_2 OR EndTime IS NULL);
-
-    PRINT N'Tai t_check_3 (ky vong: 30000 – co the chi co trong Current):';
-    SELECT *
-    FROM demo.ProductPrice_Manual  -- Current table
-    WHERE ProductID = 101;
+    PRINT N'--- Native: tat ca phien ban cua 101 (FOR SYSTEM_TIME ALL) ---';
+    EXEC (@NativeAll + N' ORDER BY ValidFrom;');
 END
 ELSE
-    PRINT N'  [FAIL] Bang ManualHistory chua ton tai. Bao Thuy xu ly.';
+    INSERT INTO @Result VALUES (N'T6/T7', N'Native', N'-', N'-', N'SYSTEM_VERSIONING chua bat', N'BLOCKED');
 
-GO
-
--- ============================================================
--- T7: Truy van khoang thoi gian – tat ca phien ban ProductID=101
--- ============================================================
-DECLARE @t_range_start DATETIME2(7) = '2026-11-01 00:00:00.0000000'; -- Thay bang moc thuc te
-DECLARE @t_range_end   DATETIME2(7) = SYSUTCDATETIME();               -- Den hien tai
-
-PRINT N'';
-PRINT N'=== [KIET] T7: RANGE QUERY – Tat ca phien ban ProductID=101 ===';
-PRINT N'Khoang thoi gian: ' + CONVERT(NVARCHAR(40), @t_range_start, 126)
-      + N' -> ' + CONVERT(NVARCHAR(40), @t_range_end, 126);
-PRINT N'';
-
--- ============================================================
--- T7-A: Nhanh Native – FOR SYSTEM_TIME BETWEEN / FROM-TO / CONTAINED IN
--- ============================================================
-PRINT N'--- T7-A: Nhanh Native – FOR SYSTEM_TIME BETWEEN (bieu kien inclusive) ---';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME BETWEEN @t_range_start AND @t_range_end
-WHERE ProductID = 101
-ORDER BY ValidFrom;
-
-PRINT N'--- T7-A2: Nhanh Native – FOR SYSTEM_TIME FROM...TO (exclusive end) ---';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME FROM @t_range_start TO @t_range_end
-WHERE ProductID = 101
-ORDER BY ValidFrom;
-
-PRINT N'--- T7-A3: Nhanh Native – FOR SYSTEM_TIME CONTAINED IN (ca hai bien la subset) ---';
-SELECT ProductID, UnitPrice, ValidFrom, ValidTo
-FROM demo.ProductPrice_Native
-FOR SYSTEM_TIME CONTAINED IN (@t_range_start, @t_range_end)
-WHERE ProductID = 101
-ORDER BY ValidFrom;
-
-PRINT N'';
-PRINT N'Ghi chu bieu kien:';
-PRINT N'  BETWEEN    : lay ban ghi co [ValidFrom, ValidTo] giao voi [@start, @end] (>= @start AND <= @end)';
-PRINT N'  FROM...TO  : lay ban ghi co ValidFrom < @end AND ValidTo > @start';
-PRINT N'  CONTAINED  : lay ban ghi co ValidFrom >= @start AND ValidTo <= @end';
-
--- ============================================================
--- T7-B: Nhanh Manual – Toan bo phien ban tu ManualHistory + Current
--- ============================================================
-PRINT N'';
-PRINT N'--- T7-B: Nhanh Manual – Hop nhat History va Current ---';
-IF OBJECT_ID(N'demo.ProductPrice_ManualHistory', N'U') IS NOT NULL
+IF @ManualReady = 1
 BEGIN
-    -- Tat ca phien ban trong History + Current (UNION ALL)
-    SELECT ProductID, UnitPrice, 'History' AS Source,
-           StartTime, EndTime   -- ten cot Thuy xac nhan
-    FROM demo.ProductPrice_ManualHistory
-    WHERE ProductID = 101
-
-    UNION ALL
-
-    SELECT ProductID, UnitPrice, 'Current' AS Source,
-           NULL AS StartTime, NULL AS EndTime
-    FROM demo.ProductPrice_Manual
-    WHERE ProductID = 101
-
-    ORDER BY StartTime;
-    -- Ghi chu: Thuy can xac nhan ten cot StartTime/EndTime chinh xac
+    PRINT N'--- Manual: tat ca phien ban cua 101 (Current UNION ALL History) ---';
+    EXEC (@ManualAll + N' ORDER BY ValidFrom;');
 END
 ELSE
-    PRINT N'  [FAIL] Bang ManualHistory chua ton tai. Bao Thuy xu ly.';
+    INSERT INTO @Result VALUES (N'T6/T7', N'Manual', N'-', N'-', N'Chua co ManualHistory/ValidFrom/ValidTo theo hop dong', N'BLOCKED');
 
-GO
+-- ============================================================
+-- T6: AS OF tai 3 moc
+-- ============================================================
+DECLARE @Seq INT = 1, @Label NVARCHAR(20), @At DATETIME2(7), @Exp DECIMAL(12,2);
+DECLARE @Actual NVARCHAR(200), @Rows INT, @Sql NVARCHAR(MAX);
 
-PRINT N'';
-PRINT N'=== HOAN THANH T6 va T7 ===';
-PRINT N'Luu output nay lam bang chung: script + anh SSMS + timestamp UTC.';
-PRINT N'Dien ket qua vao bang ma tran bang chung trong 04_testplan_Kiet_G1.md.';
+WHILE @Seq <= 3
+BEGIN
+    SELECT @Label = Label, @At = At, @Exp = Expected FROM @Marks WHERE Seq = @Seq;
+
+    IF @NativeReady = 1
+    BEGIN
+        SET @Sql = N'
+            SELECT @rows = COUNT(*),
+                   @actual = STRING_AGG(CONVERT(NVARCHAR(20), UnitPrice), N'', '')
+            FROM demo.ProductPrice_Native FOR SYSTEM_TIME AS OF @at
+            WHERE ProductID = 101;';
+        EXEC sp_executesql @Sql,
+            N'@at DATETIME2(7), @rows INT OUTPUT, @actual NVARCHAR(200) OUTPUT',
+            @at = @At, @rows = @Rows OUTPUT, @actual = @Actual OUTPUT;
+
+        INSERT INTO @Result VALUES (N'T6 AS OF', N'Native', @Label + N' = ' + CONVERT(NVARCHAR(30), @At, 121),
+            CONVERT(NVARCHAR(20), @Exp), ISNULL(@Actual, N'(0 dong)'),
+            CASE WHEN @Rows = 1 AND @Actual = CONVERT(NVARCHAR(20), @Exp) THEN N'PASS' ELSE N'FAIL' END);
+    END
+
+    IF @ManualReady = 1
+    BEGIN
+        SET @Sql = N'
+            SELECT @rows = COUNT(*),
+                   @actual = STRING_AGG(CONVERT(NVARCHAR(20), UnitPrice), N'', '')
+            FROM (' + @ManualAll + N') AS m
+            WHERE ValidFrom <= @at AND ValidTo > @at;';
+        EXEC sp_executesql @Sql,
+            N'@at DATETIME2(7), @rows INT OUTPUT, @actual NVARCHAR(200) OUTPUT',
+            @at = @At, @rows = @Rows OUTPUT, @actual = @Actual OUTPUT;
+
+        INSERT INTO @Result VALUES (N'T6 AS OF', N'Manual', @Label + N' = ' + CONVERT(NVARCHAR(30), @At, 121),
+            CONVERT(NVARCHAR(20), @Exp), ISNULL(@Actual, N'(0 dong)'),
+            CASE WHEN @Rows = 1 AND @Actual = CONVERT(NVARCHAR(20), @Exp) THEN N'PASS' ELSE N'FAIL' END);
+    END
+
+    SET @Seq += 1;
+END;
+
+-- ============================================================
+-- T7: truy van khoang. Can duoi = @t_ready; can tren = ValidFrom cua ban
+-- 30000 o tung nhanh (doc tu bang Current, khong tu dat).
+-- ============================================================
+DECLARE @Ranges TABLE (Seq INT, Name NVARCHAR(20), NativeClause NVARCHAR(100),
+                       ManualFilter NVARCHAR(200), Expected NVARCHAR(60));
+INSERT INTO @Ranges VALUES
+    (1, N'T7 FROM..TO',     N'FROM @s TO @e',           N'ValidFrom <  @e AND ValidTo >  @s', N'25000.00, 27000.00'),
+    (2, N'Phu luc BETWEEN', N'BETWEEN @s AND @e',       N'ValidFrom <= @e AND ValidTo >  @s', N'25000.00, 27000.00, 30000.00'),
+    (3, N'Phu luc CONTAINED', N'CONTAINED IN (@s, @e)', N'ValidFrom >= @s AND ValidTo <= @e', N'27000.00');
+
+DECLARE @End DATETIME2(7), @Name NVARCHAR(20), @Clause NVARCHAR(100),
+        @Filter NVARCHAR(200), @ExpSet NVARCHAR(60);
+
+IF @NativeReady = 1
+BEGIN
+    SELECT @End = NULL;
+    EXEC sp_executesql
+        N'SELECT @e = ValidFrom FROM demo.ProductPrice_Native WHERE ProductID = 101 AND UnitPrice = 30000;',
+        N'@e DATETIME2(7) OUTPUT', @e = @End OUTPUT;
+
+    IF @End IS NULL
+        INSERT INTO @Result VALUES (N'T7', N'Native', N'-', N'-', N'Current 101 khong phai 30000', N'BLOCKED');
+    ELSE
+    BEGIN
+        SET @Seq = 1;
+        WHILE @Seq <= 3
+        BEGIN
+            SELECT @Name = Name, @Clause = NativeClause, @ExpSet = Expected FROM @Ranges WHERE Seq = @Seq;
+            SET @Sql = N'
+                SELECT @actual = STRING_AGG(CONVERT(NVARCHAR(20), UnitPrice), N'', '')
+                                 WITHIN GROUP (ORDER BY ValidFrom)
+                FROM demo.ProductPrice_Native FOR SYSTEM_TIME ' + @Clause + N'
+                WHERE ProductID = 101;';
+            SET @Actual = NULL;
+            EXEC sp_executesql @Sql,
+                N'@s DATETIME2(7), @e DATETIME2(7), @actual NVARCHAR(200) OUTPUT',
+                @s = @t_ready, @e = @End, @actual = @Actual OUTPUT;
+
+            INSERT INTO @Result VALUES (@Name, N'Native',
+                CONVERT(NVARCHAR(30), @t_ready, 121) + N' -> ' + CONVERT(NVARCHAR(30), @End, 121),
+                @ExpSet, ISNULL(@Actual, N'(0 dong)'),
+                CASE WHEN ISNULL(@Actual, N'') = @ExpSet THEN N'PASS' ELSE N'FAIL' END);
+            SET @Seq += 1;
+        END;
+    END;
+END;
+
+IF @ManualReady = 1
+BEGIN
+    SELECT @End = NULL;
+    EXEC sp_executesql
+        N'SELECT @e = ValidFrom FROM demo.ProductPrice_Manual WHERE ProductID = 101 AND UnitPrice = 30000;',
+        N'@e DATETIME2(7) OUTPUT', @e = @End OUTPUT;
+
+    IF @End IS NULL
+        INSERT INTO @Result VALUES (N'T7', N'Manual', N'-', N'-', N'Current 101 khong phai 30000', N'BLOCKED');
+    ELSE
+    BEGIN
+        SET @Seq = 1;
+        WHILE @Seq <= 3
+        BEGIN
+            SELECT @Name = Name, @Filter = ManualFilter, @ExpSet = Expected FROM @Ranges WHERE Seq = @Seq;
+            SET @Sql = N'
+                SELECT @actual = STRING_AGG(CONVERT(NVARCHAR(20), UnitPrice), N'', '')
+                                 WITHIN GROUP (ORDER BY ValidFrom)
+                FROM (' + @ManualAll + N') AS m
+                WHERE ' + @Filter + N';';
+            SET @Actual = NULL;
+            EXEC sp_executesql @Sql,
+                N'@s DATETIME2(7), @e DATETIME2(7), @actual NVARCHAR(200) OUTPUT',
+                @s = @t_ready, @e = @End, @actual = @Actual OUTPUT;
+
+            INSERT INTO @Result VALUES (@Name, N'Manual',
+                CONVERT(NVARCHAR(30), @t_ready, 121) + N' -> ' + CONVERT(NVARCHAR(30), @End, 121),
+                @ExpSet, ISNULL(@Actual, N'(0 dong)'),
+                CASE WHEN ISNULL(@Actual, N'') = @ExpSet THEN N'PASS' ELSE N'FAIL' END);
+            SET @Seq += 1;
+        END;
+    END;
+END;
+
+-- Bang ket qua de chep vao ma tran bang chung (04_testplan_Kiet_G1.md, muc 6).
+SELECT TestCase, Branch, Point, Expected, Actual, Status,
+       SERVERPROPERTY('ProductVersion') AS ProductVersion,
+       SYSUTCDATETIME() AS CheckedAtUtc
+FROM @Result
+ORDER BY TestCase, Branch, Point;
 GO

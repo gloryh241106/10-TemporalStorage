@@ -1,0 +1,102 @@
+SQL Server 2025 G1 V4 verification
+Git base: 68c03156e4204444346d7445f23f226feba43bda with the following working-tree SQL versions:
+sql/00_setup/00_create_and_seed.sql SHA256 CFD1FDD2D28C11FF7A647FB0BFEC3B7661084AE471C91A8902DCCE9B1E776EF9
+sql/00_setup/01_verify_setup.sql SHA256 93E09DA41FF43E27290035AC6D2A566F7C2017EAA8B347C46EE78CC479BE2631
+sql/00_setup/02_demo_current_only.sql SHA256 2677A5F6FAD490725EEDFEEB24192AF75430927814552A08F068B0485CDAD92E
+sql/04_testing/T0_verify_baseline.sql SHA256 BE2E106527D76C9E0C70787F3C2FE74A46E3348CB6078240940DE0D4882655CC
+Sandbox database: TemporalSeminarDB_G1_QA_0166c2f0560d (only the database name was substituted)
+
+SQL Server 17.x and empty sandbox name
+sqlcmd exit: 0
+Build Edition
+----- -------
+17.0.1145.4 Standard Developer Edition (64-bit)
+
+Setup on clean sandbox
+sqlcmd exit: 0
+Changed database context to 'master'.
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+TableName RecordTotal
+--------- -----------
+Product 5
+Price_Manual 4
+Price_Native 4
+ProductID ProductName ManualPrice NativePrice CompareStatus
+--------- ----------- ----------- ----------- -------------
+101 Cà phê sữa đá 25000.00 25000.00 MATCH
+102 Trà đào cam sả 25000.00 25000.00 MATCH
+103 Bánh mì thịt 28000.00 28000.00 MATCH
+104 Matcha latte 45000.00 45000.00 MATCH
+105 Bánh quy bơ NULL NULL BOTH_MISSING
+
+T0 direct
+sqlcmd exit: 0
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+VerificationResult ProductVersion Edition CompatibilityLevel VerifiedAtUtc
+------------------ -------------- ------- ------------------ -------------
+PASS G1 / T0 - Baseline V4 17.0.1145.4 Standard Developer Edition (64-bit) 170 2026-11-10 08:58:10.3520357
+ProductID UnitPrice CurrencyCode PriceNote
+--------- --------- ------------ ---------
+101 25000.00 VND Giá khởi tạo
+102 25000.00 VND Giá khởi tạo
+103 28000.00 VND Giá khởi tạo
+104 45000.00 VND Giá khởi tạo
+
+TV1 ordinary table example
+sqlcmd exit: 0
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+Step ProductID UnitPrice
+---- --------- ---------
+Before UPDATE 101 25000.00
+Step ProductID UnitPrice
+---- --------- ---------
+After UPDATE 101 27000.00
+
+T0 wrapper after the example
+sqlcmd exit: 0
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+VerificationResult ProductVersion Edition CompatibilityLevel VerifiedAtUtc
+------------------ -------------- ------- ------------------ -------------
+PASS G1 / T0 - Baseline V4 17.0.1145.4 Standard Developer Edition (64-bit) 170 2026-11-10 08:58:12.3901488
+ProductID UnitPrice CurrencyCode PriceNote
+--------- --------- ------------ ---------
+101 25000.00 VND Giá khởi tạo
+102 25000.00 VND Giá khởi tạo
+103 28000.00 VND Giá khởi tạo
+104 45000.00 VND Giá khởi tạo
+
+Setup rerun is rejected
+sqlcmd exit: 1
+Changed database context to 'master'.
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+Msg 52001, Level 16, State 1, Server GloryH, Line 10
+Setup requires an empty test database and no open transaction.
+
+T0 after rejected rerun
+sqlcmd exit: 0
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+VerificationResult ProductVersion Edition CompatibilityLevel VerifiedAtUtc
+------------------ -------------- ------- ------------------ -------------
+PASS G1 / T0 - Baseline V4 17.0.1145.4 Standard Developer Edition (64-bit) 170 2026-11-10 08:58:13.0455219
+ProductID UnitPrice CurrencyCode PriceNote
+--------- --------- ------------ ---------
+101 25000.00 VND Giá khởi tạo
+102 25000.00 VND Giá khởi tạo
+103 28000.00 VND Giá khởi tạo
+104 45000.00 VND Giá khởi tạo
+
+Fixture with period and versioning off
+sqlcmd exit: 0
+temporal_type
+-------------
+0
+
+(1 rows affected)
+
+T0 rejects an existing period
+sqlcmd exit: 1
+Changed database context to 'TemporalSeminarDB_G1_QA_0166c2f0560d'.
+Msg 52111, Level 16, State 1, Server GloryH, Line 91
+A system-time period already exists.
+
+Disposable sandbox cleanup succeeded.
