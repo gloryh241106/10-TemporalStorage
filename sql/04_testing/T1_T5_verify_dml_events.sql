@@ -1,7 +1,7 @@
 /*
 ================================================================================
 CSC12003 | Nhom 10 | Chu de 8 | Kiet (TV4)
-Script: T1_T5_dml_events.sql
+Script: T1_T5_verify_dml_events.sql (G3, chi doc)
 Muc dich: Cac su kien DML T1-T5 do Thuy (Manual) va Trung (Native) thuc hien.
            Kiet su dung script nay de KIEM CHUNG ket qua SAU khi Thuy/Trung bàn giao.
            Phan "KIEM CHUNG" duoi tung su kien la phan Kiet tu chay.
@@ -22,17 +22,12 @@ BANG GHI MOC UTC – Kiet ghi truoc va sau moi su kien
 Dung cho T6 (AS OF) va T7 (range query)
 ==============================================================================
 */
--- Kiet tu mo file text hoac dung SSMS de ghi lai cac moc nay:
--- @t_before_T1 = SYSUTCDATETIME() -- truoc khi Thuy/Trung insert 105
--- @t_after_T1  = SYSUTCDATETIME() -- sau khi insert xong
--- @t_before_T2 = SYSUTCDATETIME() -- truoc khi update 101 lan 1
--- @t_after_T2  = SYSUTCDATETIME()
--- @t_before_T3 = SYSUTCDATETIME() -- truoc khi update 101 lan 2
--- @t_after_T3  = SYSUTCDATETIME()
--- @t_before_T4 = SYSUTCDATETIME() -- truoc khi delete 104
--- @t_after_T4  = SYSUTCDATETIME()
--- @t_before_T5 = SYSUTCDATETIME() -- truoc khi update 102+103
--- @t_after_T5  = SYSUTCDATETIME()
+-- Kiet ghi 3 moc bang SELECT SYSUTCDATETIME() tren cung SQL Server
+-- (dung cho T6_T7_time_travel_queries.sql, Google Docs quy uoc, muc 10.4):
+-- @t_ready    : sau khi ca hai nhanh san sang, TRUOC khi bat dau T2
+-- @t_between  : sau commit T2, TRUOC khi bat dau T3
+-- @t_after_T3 : sau commit T3
+-- T2 va T3 phai la hai giao tac rieng da commit.
 
 -- ============================================================
 -- T1: INSERT gia cho ProductID 105 (Thuy/Trung thuc hien)

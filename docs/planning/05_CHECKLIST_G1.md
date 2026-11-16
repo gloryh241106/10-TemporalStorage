@@ -1,31 +1,37 @@
-# Checklist nghiệm thu G1 – Hoàng + Kiệt
+# Checklist G1 và bàn giao – Hoàng + Kiệt
+
+Quy ước [tab Đồ án Lý thuyết](https://docs.google.com/document/d/1mPEMmDRuefvWg4WnW67O9pyIm1HDXP-jaOmJqN2wasI/edit?tab=t.0) chốt ngày 10/11/2026. Các mục kỹ thuật bên dưới dựa trên [log SQL Server](../../evidence/G1_V4_sqlcmd.txt).
 
 ## A. Hoàng – nghiên cứu và thiết kế
-- [ ] Giải thích được system time khác valid time.
-- [ ] Giải thích được Trigger tự xây History và điểm khác native Temporal.
-- [ ] Nêu được vì sao chọn bài toán theo dõi giá, không theo dõi lịch sử ProductName.
-- [ ] Chốt ERD Crow's Foot và 0..1 giá hiện tại cho mỗi Product trên từng nhánh.
-- [ ] Nêu rõ không có supertype/subtype ở mô hình này.
-- [ ] Xác nhận chỉ dùng `ProductID` làm mã định danh; `ProductCode` đã loại bỏ khỏi ERD và SQL.
-- [ ] Chốt schema/fk/check và xử lý dữ liệu Product 105 chưa có giá.
 
-## B. Kiểm tra SQL thật – BẮT BUỘC, chưa hoàn thành trong gói
-- [ ] Ghi thông tin `SELECT @@VERSION` và tên instance SQL Server.
-- [ ] Nếu có database V3: sao lưu nếu cần, chạy migration V3→V4; nếu database mới: chạy 00 setup V4. Lưu chứng cứ.
-- [ ] Chạy 01 verify **bản V4** nhận PASS và lưu chứng cứ (ảnh PASS V3 không thay thế).
-- [ ] Chạy lại 00 trên baseline, số dòng không đổi.
-- [ ] Kiểm tra trước khi gắn G2: chưa có Trigger/History/period trên các bảng giá.
-- [ ] Nếu DB tồn tại trước đó: được chủ sở hữu cho phép sử dụng hoặc chuyển sang sandbox mới.
+- [x] Viết phần phân biệt thời gian hệ thống, thời gian nghiệp vụ và cơ chế lưu lịch sử bằng trigger hoặc native.
+- [x] Chốt phạm vi theo dõi giá và ghi chú; lịch sử tên sản phẩm nằm ngoài phạm vi.
+- [x] Đồng bộ ERD, SQL và báo cáo: mỗi nhánh có 0..1 giá hiện tại cho mỗi Product. Hai bảng giá là hai nhánh đối chứng; mô hình không dùng supertype/subtype.
+- [x] Dùng `ProductID` làm mã định danh và khóa nối chung. Sản phẩm 105 có trong danh mục và chưa có giá.
+- [x] Chuẩn bị demo mở đầu cho UPDATE trên bảng thường và lời dẫn sang hai nhánh.
 
-## C. Hợp đồng nhóm – BẮT BUỘC
-- [x] **Kiệt xác nhận test cases T0–T7 và kết quả kỳ vọng.** ✅ 2026-10-28 – Xem `04_testplan_Kiet_G1.md`
-- [ ] Thùy xác nhận hiểu nghĩa timestamp của ManualHistory và xử lý nhiều dòng.
-- [ ] Trung xác nhận period DATETIME2 và phiên bản SQL Server thực tế.
-- [ ] Hoàng ghi quyết định G1, ngày chốt và người xác nhận.
+## B. Hoàng – kiểm tra SQL
 
-## D. Công việc nhóm trưởng liên tục
-- [ ] Gửi bản G1 được duyệt cho Thùy/Trung/Kiệt.
-- [ ] Nhận báo cáo và evidence G2; không tự bịa output thử nghiệm.
-- [ ] Ghép Master Report, slide và kiểm tra 15 phút lý thuyết + 10 phút demo.
-- [ ] Tổng hợp % hoàn thành thực tế của từng thành viên dựa trên bằng chứng.
-- [ ] Nộp đúng 3 file; bản in báo cáo ngày 08/12/2026.
+- [x] Ghi SQL Server 2025 Standard Developer 17.0.1145.4, compatibility level 170.
+- [x] Chạy setup và T0 trên database thử mới. Hai bảng giá có cùng dữ liệu R0; số dòng là 5/4/4; chưa có trigger, history hay period.
+- [x] Kiểm tra setup từ chối chạy lại trên baseline đã có dữ liệu; T0 vẫn PASS.
+- [x] Chạy demo bảng tạm: sản phẩm 101 đổi từ 25.000 lên 27.000 VND trong bảng tạm. T0 sau demo vẫn PASS.
+- [x] Chạy lại setup và T0 ngày 13/11 trên database thử mới, SQL Server 2025 build 17.0.1155.3: T0 PASS, setup chạy lại bị từ chối. Xem [log](../../evidence/G1_V4_T0_rerun_20261113.txt).
+- [ ] Lưu output T0 trên môi trường nhóm sẽ dùng để chạy G2, nếu khác máy của Hoàng.
+
+## C. Bàn giao và đối chứng
+
+- [x] Ghi hợp đồng V4, README và log G1 trong repo để từng nhánh có đầu vào.
+- [x] Kiệt xác nhận test plan và kỳ vọng T0–T7 ngày 28/10/2026. Xem [test plan](04_testplan_Kiet_G1.md); mốc này là duyệt kế hoạch.
+- [x] Hoàng cập nhật Test Plan 1.1 và script T6/T7 theo hợp đồng V4 (13/11): `ValidFrom`/`ValidTo`, ba mốc UTC, cận trên T7 là `ValidFrom` của bản 30.000, bảng Expected/Actual/Status. Script đã chạy thử trên sandbox giả lập hai nhánh; đó không phải bằng chứng G2.
+- [x] Hoàng chốt phần G1 ngày 16/11: hợp đồng ghi SQL Server 2025, quy tắc mốc cho dòng R0 bên Manual, bộ mốc UTC dùng chung cho hai nhánh. G2 bắt đầu theo [bàn giao G2](06_G2_handoff.md).
+- [ ] Kiệt rà và xác nhận Test Plan 1.1 cùng log T0 ngày 13/11.
+- [ ] Thùy bàn giao script Manual, quy ước timestamp và output thử UPDATE.
+- [ ] Trung bàn giao script Native, period `DATETIME2(7)` và output thử UPDATE.
+- [ ] Kiệt chạy từng nhánh khi nhận bàn giao, sau đó đối chứng khi có đủ hai nhánh. Lưu kết quả theo lần chạy.
+
+## D. Hoàng – tích hợp và chuẩn bị nộp
+
+- [ ] Ghép báo cáo, slide và gói minh họa từ đầu ra G2/G3; ghi tỷ lệ hoàn thành thực tế của cả nhóm.
+- [ ] Chạy thử toàn bài: 15 phút trình bày, 10 phút minh họa; tối đa 20 slide.
+- [ ] In báo cáo cho seminar 08/12/2026; nộp đúng 3 file lên Moodle trước 23:00 ngày 10/12/2026.
