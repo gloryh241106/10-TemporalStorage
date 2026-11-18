@@ -1,0 +1,62 @@
+HUONG DAN CHAY NHANH MANUAL HISTORY
+CSC12003 - Nhom 10 - Chu de 8 - Thuy (TV2)
+
+1. MOI TRUONG
+   SQL Server 2025 (17.x), database TemporalSeminarDB.
+   SSMS duoc dung de mo va chay cac file SQL.
+   Chay voi IMPLICIT_TRANSACTIONS OFF, khong co giao tac dang mo.
+
+2. KHOI TAO TREN MOI TRUONG THU NGHIEM MOI
+   Tu thu muc goc cua repo, chay theo thu tu:
+   a. sql/00_setup/00_create_and_seed.sql
+   b. sql/00_setup/01_verify_setup.sql
+   Kiem tra PASS G1 / T0 - Baseline V4 truoc khi cai Manual.
+   Khong chay setup lai tren database da demo; khong xoa lich su de reset.
+
+3. CAI DAT MANUAL
+   a. sql/01_trigger/create_manual_history.sql
+   b. sql/01_trigger/add_manual_period_columns.sql
+   c. sql/01_trigger/create_manual_trigger.sql
+   Sau cai dat: trigger IsDisabled = 0, CurrentRows = 4, HistoryRows = 0.
+   Cai du ca ba file truoc khi thay doi gia.
+
+4. CHAY T1-T5 THEO THU TU, MOI FILE MOT LAN CHO MOT LAN DEMO
+   a. test_manual_t1_insert.sql
+      Them 105 = 19000. Current = 5 dong, History = 0 dong.
+   b. test_manual_t2_update.sql
+      Doi 101 len 27000; History giu 25000.
+      Current = 5 dong, History = 1 dong.
+   c. test_manual_t3_update.sql
+      Doi 101 len 30000 trong giao tac rieng da tach khoi T2.
+      History giu 25000 va 27000. Current = 5 dong, History = 2 dong.
+   d. test_manual_t4_delete.sql
+      Xoa dong gia 104; History giu 45000, dbo.Product van con 104.
+      Current = 4 dong, History = 3 dong.
+   e. test_manual_t5_multirow_update.sql
+      Mot lenh UPDATE tang 2000 cho 102 va 103.
+      Current 102 = 27000, 103 = 30000; History giu 25000 va 28000.
+      Current = 4 dong, History = 5 dong.
+   Cac file tren nam trong sql/01_trigger/ va commit khi kiem tra dat.
+   Neu dong SSMS/khoi dong lai may, tiep tuc tu test chua chay.
+   Khong chay lai test da commit de chup them anh hoac xuat log.
+
+5. CHAY TRUY VAN LICH SU, CO THE CHAY LAI NHIEU LAN
+   a. sql/01_trigger/manual_as_of_queries.sql
+      Mac dinh dung ba moc UTC that da ghi trong lan chay cua Thuy.
+      Ket qua T6: 25000, 27000, 30000; moi moc mot dong; ba kiem tra PASS.
+   b. sql/01_trigger/manual_range_queries.sql
+      Can tren doc tu ValidFrom cua ban Current 101 gia 30000.
+      Ket qua T7 FROM/TO: 25000 va 27000; khong lay 30000 tai can tren.
+      Bang kiem tra chinh va bien co nam dong PASS.
+   Hai file chi doc cac bang nghiep vu va History.
+   Neu chay lai demo tren database moi, thay cac moc mac dinh bang moc UTC
+   thu duoc tu lan chay moi. Khong dung timestamp cua lan cu de doi chung.
+
+6. BANG CHUNG VA BAN GIAO
+   Anh T0-T7 duoc luu trong evidence/Thuy/.
+   Output SSMS hoac anh ket qua duoc chap nhan theo quy uoc nhom, muc 5.3.
+   Log van ban la tuy chon; khong tao log gia tu ket qua du kien.
+   Dinh kem ma test, script, nguoi chay, version SQL Server, UTC va Git SHA.
+   README.md trong sql/01_trigger/ chua thiet ke, ket qua va lien ket anh.
+   Huong dan nay chi bao gom Manual; huong dan chay chung cua goi nop can
+   ghep them phan Native va doi chung do cac thanh vien phu trach.
