@@ -2,8 +2,8 @@
 
 **Phiên bản:** 1.1 (đồng bộ hợp đồng V4)  
 **Người tạo:** Kiệt (TV4)  
-**Ngày tạo:** 2026-10-28 · **Cập nhật:** 2026-11-13 (Hoàng soạn thay, chờ Kiệt xác nhận)  
-**Trạng thái:** T0 V4 đã chạy lại trên database thử sạch. T6/T7 đã theo `ValidFrom`/`ValidTo` và ba mốc UTC theo mục 10.4 trong Google Docs quy ước. Kiệt xác nhận phần đối chứng sau khi nhận hai nhánh.
+**Ngày tạo:** 2026-10-28 · **Cập nhật:** 2026-11-13 (Hoàng soạn thay) · 2026-11-18 (Kiệt rà, xác nhận 1.1, nâng `T1_T5_verify_dml_events.sql` lên v1.1)  
+**Trạng thái:** T0 V4 đã chạy lại trên database thử sạch. T6/T7 đã theo `ValidFrom`/`ValidTo` và ba mốc UTC theo mục 10.4 trong Google Docs quy ước. Kiệt đã xác nhận bản 1.1 ngày 18/11; phần đối chứng chạy sau khi nhận hai nhánh theo [runbook G3](07_G3_runbook_Kiet.md).
 **Tham chiếu:** `02_team_data_contract.md`
 
 ---
@@ -249,7 +249,7 @@ Các script trong `sql/04_testing/` chỉ đọc. DML của T1–T5 do Thùy và
 | Script | Nội dung |
 |---|---|
 | `01_verify_setup.sql` | Kiểm tra T0 trước G2. |
-| `T1_T5_verify_dml_events.sql` | Đọc Current và History của hai nhánh sau từng sự kiện T1–T5 |
+| `T1_T5_verify_dml_events.sql` | v1.1: đặt `@AfterStep` (1–5) theo bước đã commit. Kiểm metadata (DATETIME2(7), trigger, PK `HistoryID`, retention `INFINITE`), giá Current/History, `ValidTo` cực đại, period liền mạch của 101, T5 dùng chung một mốc, rồi đối chứng giá trị hai nhánh. In bảng Expected/Actual/Status và Verdict từng nhánh |
 | `T6_T7_time_travel_queries.sql` | Nhận 3 mốc UTC; chạy AS OF, `FROM ... TO` và hai mệnh đề phụ lục; in bảng Expected/Actual/Status cho từng nhánh |
 
 ---
@@ -290,11 +290,20 @@ Sau khi hoàn thành T0–T7, lập bảng so sánh theo 6 tiêu chí sau:
 
 | Thành viên | Vai trò | Xác nhận | Ngày |
 |---|---|---|---|
-| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ Đã xác nhận bản 1.0 (28/10). ⬜ Chờ xác nhận bản 1.1 | |
+| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ Đã xác nhận bản 1.0 (28/10) và bản 1.1 cùng log T0 ngày 13/11 | 2026-11-18 |
 | Thùy (TV2) | Hiểu timestamp ManualHistory và multi-row | ⬜ Chờ ký | |
 | Trung (TV3) | Xác nhận period DATETIME2 và SQL Server version | ⬜ Chờ ký | |
 | Hoàng (TV1) | Ghi quyết định G1 và ngày chốt | Đã ghi quy ước và log T0 | 2026-11-10 |
 
 ---
 
-*Kiệt (TV4) sở hữu test plan. Bản 1.1 do Hoàng cập nhật ngày 13/11/2026 theo hợp đồng V4; Kiệt rà và xác nhận trước G2.*
+## 9. Ghi chú rà soát bản 1.1 (Kiệt, 18/11)
+
+- Kỳ vọng T0–T7 khớp hợp đồng V4 và `06_G2_handoff.md`; điều kiện biên của T7 (`FROM..TO`, `BETWEEN`, `CONTAINED IN`) khớp Microsoft Learn.
+- `T1_T5_verify_dml_events.sql` bản cũ chỉ in `SELECT *`, không kiểm `ValidFrom`/`ValidTo` và không có PASS/FAIL. Bản 1.1 đã bổ sung, cùng định dạng kết quả với `T6_T7_time_travel_queries.sql`.
+- Hai script đã chạy thử trên database giả lập (`TemporalSeminarDB_KietSim`, SQL Server 2025 17.0.1000.7) với trigger và temporal do Kiệt tự dựng tạm. Kết quả: nhánh đúng thì PASS hết; trigger chỉ đọc một dòng thì FAIL ở T5 (mất History 102); retention 30 ngày thì FAIL ở META. Đây là thử script, **không phải bằng chứng G2/G3**.
+- Mốc thời gian: hạn bàn giao G2 là 22/11, trễ hơn hạn kiểm thử tích hợp 21/11 trong phân công. Đề xuất chạy G3 từ 22–25/11; báo cáo và slide của Kiệt vẫn giữ hạn 30/11.
+
+---
+
+*Kiệt (TV4) sở hữu test plan. Bản 1.1 do Hoàng cập nhật ngày 13/11/2026 theo hợp đồng V4; Kiệt rà và xác nhận ngày 18/11/2026.*
