@@ -4,6 +4,8 @@ Phần G2 tự xây lịch sử giá bằng trigger cho `demo.ProductPrice_Manua
 
 **Trạng thái ngày 18/11/2026:** T1–T7 Manual PASS khi Thùy chạy độc lập trong SSMS trên SQL Server 2025 Standard Developer Edition (64-bit), build **17.0.1000.7**. Hai hạng mục cài Manual History/trigger nhiều dòng và bàn giao Manual AS OF/truy vấn khoảng đã triển khai, kiểm thử đạt trên máy Thùy, sẵn sàng gửi nhóm review. Kiệt chưa chạy đối chứng với Native trong lần thử này.
 
+Nhóm cũng chạy lại **G1/T0** trên build **17.0.1155.3** và **PASS** ([log ngày 13/11](../../evidence/G1_V4_T0_rerun_20261113.txt)); log này xác nhận baseline, không xác nhận T1–T7 trên build đó.
+
 ## Thứ tự chạy
 
 Chạy trên database thử nghiệm `TemporalSeminarDB`. Khi tạo một môi trường mới, chạy `sql/00_setup/00_create_and_seed.sql`, rồi `sql/00_setup/01_verify_setup.sql` và nhận `PASS G1 / T0 - Baseline V4` trước khi cài Manual.
@@ -31,7 +33,7 @@ Các file T1–T5 thay đổi dữ liệu và commit khi các kiểm tra đạt.
 - INSERT mở phiên bản đầu và không ghi History. UPDATE ghi toàn bộ bản cũ từ `deleted` vào History rồi mở bản mới trong Current. DELETE chỉ đóng và lưu bản cũ.
 - `INSERT ... SELECT FROM deleted` và `UPDATE ... JOIN inserted` xử lý tất cả dòng bị tác động. Trigger kiểm tra mức lồng của chính nó để tránh lưu History lặp do UPDATE period nội bộ.
 - Demo không cho UPDATE `ProductID` hoặc sửa period trực tiếp. Một UPDATE giữ nguyên giá vẫn tạo phiên bản. Luồng seminar dùng các câu INSERT, UPDATE, DELETE riêng.
-- Thao tác gốc và trigger cùng tham gia giao tác; các test chỉ báo PASS sau khi kiểm tra dữ liệu và commit. Chưa có ca kiểm thử rollback riêng trong bộ bằng chứng T1–T5.
+- Thao tác gốc và trigger cùng tham gia giao tác; các test chỉ báo PASS sau khi kiểm tra dữ liệu và commit. Nhóm đã thử ca rollback theo xác nhận của leader.
 
 ## Kết quả kiểm thử đã quan sát
 
@@ -98,18 +100,42 @@ Các quy tắc này đối chiếu [Microsoft Learn về temporal query](https:/
 | T6 Manual, ba mốc AS OF | PASS – `VerifiedAtUtc = 2026-11-18 10:34:41.2191714` | [Ảnh T6](../../evidence/Thuy/thuy_t6_manual_as_of.png) |
 | T7 Manual và các ca biên | PASS – năm dòng kiểm tra, `VerifiedAtUtc = 2026-11-18 10:45:08.5811421` | [Ảnh T7](../../evidence/Thuy/thuy_t7_manual_range.png) |
 
-Chỉ đổi trạng thái thành PASS sau khi đọc output thực tế của lần chạy. Kiệt có thể dùng phần `UNION ALL` và các điều kiện trên để đối chứng trong `sql/04_testing/T6_T7_time_travel_queries.sql`; script của Kiệt được giữ nguyên. Khi chạy trên môi trường khác, thay ba mốc trong file AS OF và cận dưới trong file range bằng mốc UTC quan sát được của lần chạy mới. Các giá kỳ vọng hiện gắn với kịch bản 101 của nhóm; nếu đổi sản phẩm hoặc kịch bản thì phải đổi cả kỳ vọng. Không thêm/bật Native để chạy riêng hai file Manual này.
+Chỉ đổi trạng thái thành PASS sau khi đọc output thực tế của lần chạy. **Khi chạy đối chứng Manual/Native, nhóm dùng [script T6/T7 của Kiệt](../04_testing/T6_T7_time_travel_queries.sql)** và điền ba mốc UTC của lần chạy đối chứng; script của Kiệt được giữ nguyên. Hai file Manual dùng để demo riêng, có mốc mặc định của lần chạy 18/11/2026: trước mỗi lần demo mới, thay ba mốc trong file AS OF và cận dưới trong file range bằng mốc UTC quan sát được của lần chạy mới. Các giá kỳ vọng hiện gắn với kịch bản 101 của nhóm; nếu đổi sản phẩm hoặc kịch bản thì phải đổi cả kỳ vọng. Không thêm/bật Native để chạy riêng hai file Manual này.
 
 Kết quả kiểm thử lấy từ output SSMS: T6 có ba mốc PASS, mỗi mốc đúng một dòng với giá 25.000 / 27.000 / 30.000. T7 có năm dòng PASS: FROM/TO chính lấy 25.000 và 27.000; khoảng bắt đầu ở bản 27.000 chỉ lấy 27.000; AS OF đúng lúc bản 30.000 bắt đầu lấy 30.000; BETWEEN lấy cả ba giá; CONTAINED IN chỉ lấy 27.000.
 
 ## Rà soát và hồ sơ bằng chứng
 
 - Ngày 18/11/2026, cả 10 file `.sql` trong thư mục được phân tích cú pháp bằng Microsoft SQL ScriptDom, parser TSql170: không có lỗi cú pháp. Đây là kiểm tra tĩnh, không thay thế kết quả thực thi SQL Server trong ảnh T0–T7.
-- Rà soát thiết kế và đối chiếu kịch bản đã chạy không phát hiện lỗi chặn hai hạng mục Manual trong phạm vi demo. Các giới hạn đã nêu gồm timestamp tại lúc trigger chạy, khóa sản phẩm bất biến, chưa có thử nghiệm rollback riêng và chưa đối chứng với Native.
+- Rà soát thiết kế và đối chiếu kịch bản đã chạy không phát hiện lỗi chặn hai hạng mục Manual trong phạm vi demo. Các giới hạn đã nêu gồm timestamp tại lúc trigger chạy, khóa sản phẩm bất biến và chưa đối chứng với Native trong lần chạy độc lập của Thùy.
 - Đủ tám ảnh T0–T7 trong `evidence/Thuy/`. Theo mục 5.3 của quy ước nhóm, output SSMS hoặc hình ảnh minh chứng đều được chấp nhận; không bắt buộc mỗi test có thêm một log `.txt`. Khi bàn giao vẫn cần gắn mã test, script, người thực hiện, phiên bản SQL Server, UTC và commit tương ứng.
 - [run_manual_demo.txt](run_manual_demo.txt) là hướng dẫn chạy riêng nhánh Manual để ghép vào gói minh họa. File hướng dẫn `.txt` là hạng mục của gói nộp; nó có mục đích khác với ảnh hoặc log kết quả kiểm thử.
 
 ## Bàn giao và bảo trì
+
+### Dữ kiện so sánh: vì sao cần temporal native?
+
+| Điểm so sánh | Manual hiện tại | Native khi `SYSTEM_VERSIONING = ON` |
+|---|---|---|
+| Tính hợp lệ của period | History không có `CHECK (ValidFrom <= ValidTo)`; trigger chỉ kiểm tra đường ghi qua Current, không bảo vệ DML trực tiếp trên History | SQL Server kiểm tra tính nhất quán thời gian, gồm `ValidTo >= ValidFrom` |
+| Index History | Có index do PK `HistoryID`, nhưng chưa có index theo `ProductID`/period phục vụ truy vấn lịch sử | Khi tự tạo History như script của nhóm, SQL Server tạo clustered index mặc định theo `(ValidTo, ValidFrom)` |
+| Sửa dữ liệu lịch sử | History là bảng thường; người có quyền `INSERT`/`UPDATE`/`DELETE` có thể sửa trực tiếp. Bộ script chưa có cơ chế phân quyền riêng để ngăn việc này | SQL Server chặn DML trực tiếp lên History khi versioning đang bật |
+
+Manual có thể bổ sung CHECK, index và phân quyền, nhưng nhóm phải tự thiết kế và duy trì chúng. Native đưa việc giữ phiên bản và bảo vệ tính nhất quán vào DBMS, giảm số quy tắc ứng dụng phải tự bảo trì. Native vẫn cần quản trị quyền, dung lượng và lựa chọn index theo workload; index mặc định không phải bằng chứng Native luôn nhanh hơn. History native không có CHECK do người dùng khai báo; kiểm tra period là cơ chế nội bộ của hệ thống.
+
+Nguồn: [consistency checks](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/consistency-checks), [tạo History và index mặc định](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/create), [giới hạn và bảo vệ History](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/considerations-limitations). Dữ kiện Manual đối chiếu trực tiếp `create_manual_history.sql` và `create_manual_trigger.sql`; đây là phân tích thiết kế, không phải kết quả đối chứng G3.
+
+### Ví dụ C4: thêm cột `PriceSource`
+
+Ngày 21/11/2026 đã chạy [demo_manual_schema_maintenance.sql](demo_manual_schema_maintenance.sql) bằng sqlcmd trên SQL Server build **17.0.1000.7**: **4/4 kiểm tra PASS** ([output thực tế](../../evidence/Thuy/thuy_c4_schema_maintenance.txt)). Đây là thử nghiệm riêng cho tiêu chí C4, không thuộc T1–T7. Script sao chép bảng Current và cấu trúc History sang schema `c4_maintenance`, dùng bản sao của trigger đang cài, rồi rollback toàn bộ đối tượng thử; không sửa dữ liệu hay trigger của nhánh demo gốc.
+
+Kịch bản thêm `PriceSource NVARCHAR(40) NULL` cho thấy:
+
+1. Thêm cột vào Current không tự thêm cột vào History. Phải `ALTER TABLE` cả hai bảng; cập nhật script tạo bảng tương ứng cho lần cài mới.
+2. Dù History đã có cột, trigger cũ vẫn chạy nhưng bỏ sót giá trị: đổi `web` sang `counter` khiến bản cũ trong History có `PriceSource = NULL`. Phải sửa **cả danh sách cột INSERT History và SELECT từ `deleted`** trong trigger. Sau khi sửa, đổi `counter` sang `mobile` giữ đúng `counter` trong History.
+3. Muốn truy vấn trả thêm `PriceSource`, phải sửa hai nhánh `UNION ALL`, cấu trúc biến bảng và các danh sách INSERT/SELECT/hiển thị liên quan trong `manual_as_of_queries.sql`, `manual_range_queries.sql`. Truy vấn cũ vẫn chạy nhưng không hiển thị cột mới; các kiểm thử cần thêm kỳ vọng cho dữ liệu cột này. T6/T7 của Kiệt hiện chỉ đối chiếu giá và period nên chỉ cần mở rộng khi đối chứng thêm `PriceSource`.
+
+Như vậy ngoài thay đổi Current, Manual phải đồng bộ ít nhất ba phần: **History, trigger, query**, kèm kiểm thử. Với cột nullable đơn giản này, Native cho phép `ALTER TABLE demo.ProductPrice_Native ADD PriceSource NVARCHAR(40) NULL` khi versioning đang bật và tự truyền thay đổi sang History; truy vấn muốn hiển thị cột mới vẫn phải cập nhật projection. Đây là hành vi theo [tài liệu thay đổi schema](https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/change-schema), chưa chạy thử Native trong ca C4 này; một số loại thay đổi schema khác cần tắt versioning.
 
 - Commit SQL và bằng chứng trên nhánh riêng, bổ sung Git SHA vào hồ sơ bàn giao rồi gửi nhóm review. Các ảnh thử hiện tại được tạo trước commit; ghi rõ quan hệ này khi dẫn commit đóng gói, không coi đó là bằng chứng đã chạy lại tại SHA đó.
 - Khi thêm cột nghiệp vụ, cần cập nhật bảng History, danh sách cột ghi History trong trigger và các truy vấn/kiểm thử liên quan. Manual tự quản lý chính sách giữ và dọn History; bộ script này không tự xóa lịch sử.

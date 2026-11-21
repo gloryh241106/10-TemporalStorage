@@ -1,0 +1,16 @@
+﻿Changed database context to 'TemporalSeminarDB'.
+ProductID UnitPrice CurrencyCode PriceNote PriceSource ValidFrom ValidTo
+--------- --------- ------------ --------- ----------- --------- -------
+101 30000.00 VND Giá khởi tạo NULL 2026-11-18 02:42:58.2725759 2026-11-21 12:51:58.7075081
+101 30000.00 VND Giá khởi tạo NULL 2026-11-21 12:51:58.7075081 2026-11-21 12:51:58.7192017
+101 30000.00 VND Giá khởi tạo counter 2026-11-21 12:51:58.7192017 2026-11-21 12:51:58.7579478
+101 30000.00 VND Giá khởi tạo mobile 2026-11-21 12:51:58.7579478 9999-12-31 23:59:59.9999999
+Step Observation Status
+---- ----------- ------
+1 Current has PriceSource; Manual History does not add it automatically. PASS
+2 History column exists, but the old trigger records NULL instead of web. PASS
+3 After repairing the trigger, History preserves the old counter value. PASS
+4 The extended Current UNION ALL History query returns PriceSource. PASS
+VerificationResult ProductVersion Edition VerifiedAtUtc
+------------------ -------------- ------- -------------
+PASS C4 - Manual schema maintenance; experimental objects rolled back 17.0.1000.7 Standard Developer Edition (64-bit) 2026-11-21 12:51:58.7910851

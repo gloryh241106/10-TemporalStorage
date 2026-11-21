@@ -4,6 +4,8 @@
 
 ## Chạy G1 trên SQL Server 2025
 
+Nhóm chạy lại G1/T0 trên build **17.0.1155.3** ngày 13/11/2026 cũng **PASS** ([log kiểm chứng](evidence/G1_V4_T0_rerun_20261113.txt)).
+
 1. Kết nối bằng SSMS vào instance thử nghiệm. Dùng `TemporalSeminarDB` mới hoặc trống. Nếu tên này đã có dữ liệu, chọn instance thử khác hoặc dùng một tên database mới nhất quán trong các script.
 2. Chạy [`00_create_and_seed.sql`](sql/00_setup/00_create_and_seed.sql), rồi chạy [`01_verify_setup.sql`](sql/00_setup/01_verify_setup.sql) để kiểm tra T0 trước G2. Kết quả cần có `PASS G1 / T0 - Baseline V4`, 5 sản phẩm, 4 giá mỗi nhánh và sản phẩm 105 chưa có giá.
 3. Chạy [`02_demo_current_only.sql`](sql/00_setup/02_demo_current_only.sql) để minh họa UPDATE trên một bảng tạm thông thường. Giá mẫu ở hai bảng G1 vẫn là R0.
