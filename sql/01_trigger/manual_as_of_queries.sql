@@ -9,9 +9,11 @@ Expected result: Product 101 has prices 25000 / 27000 / 30000 at the three marks
 Read-only for persistent data; table variables only hold query results.
 This script can be rerun without modifying prices or History.
 
-The default UTC marks come from Thuy's actual T2/T3 output on 2026-11-18.
-Replace all three marks with observed UTC values for another run/database.
-Kiet records the appropriate marks when comparing Manual and Native.
+DEMO NOTE: The three hard-coded UTC marks below belong ONLY to the run
+on 2026-11-18. Before EVERY new demo/run/database, replace @t_ready,
+@t_between and @t_after_T3 with the UTC marks observed in that run.
+For the group's Manual/Native comparison, use Kiet's script instead:
+sql/04_testing/T6_T7_time_travel_queries.sql (fill its observed UTC marks).
 Manual query semantics: ValidFrom <= @AtUtc AND ValidTo > @AtUtc.
 Zero-duration versions are excluded, as with Native FOR SYSTEM_TIME.
 Reference: https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/overview

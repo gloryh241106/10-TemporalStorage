@@ -9,8 +9,11 @@ Expected result: FROM start TO start-of-30000 returns 25000 and 27000 only.
 Read-only for persistent data; table variables only hold query results.
 This script can be rerun without modifying prices or History.
 
-The default lower bound is ReadyUtc from Thuy's actual T2 output.
-Replace it with the observed ready mark for another run/database.
+DEMO NOTE: The hard-coded @StartUtc below belongs ONLY to the run
+on 2026-11-18. Before EVERY new demo/run/database, replace it with the
+ReadyUtc observed before T2 in that run.
+For the group's Manual/Native comparison, use Kiet's script instead:
+sql/04_testing/T6_T7_time_travel_queries.sql (fill its observed UTC marks).
 The upper bound is read from the actual current version, not invented.
 All predicates exclude zero-duration versions through the shared version set.
 Reference: https://learn.microsoft.com/en-us/sql/relational-databases/tables/temporal/overview

@@ -51,6 +51,13 @@ CSC12003 - Nhom 10 - Chu de 8 - Thuy (TV2)
    Hai file chi doc cac bang nghiep vu va History.
    Neu chay lai demo tren database moi, thay cac moc mac dinh bang moc UTC
    thu duoc tu lan chay moi. Khong dung timestamp cua lan cu de doi chung.
+   Khi doi chung Manual/Native, nhom dung script T6/T7 cua Kiet:
+   sql/04_testing/T6_T7_time_travel_queries.sql, dien moc UTC cua lan chay do.
+
+   Tuy chon, sau khi cai Manual: chay demo_manual_schema_maintenance.sql
+   de minh hoa C4 them PriceSource. Script dung ban sao trong giao tac,
+   rollback ca schema thu nghiem; khong sua du lieu/trigger demo goc.
+   Ky vong 4 dong PASS va PASS C4; khong tinh ca nay vao T1-T7.
 
 6. BANG CHUNG VA BAN GIAO
    Anh T0-T7 duoc luu trong evidence/Thuy/.
