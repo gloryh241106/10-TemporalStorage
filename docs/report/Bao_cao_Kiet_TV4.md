@@ -26,7 +26,7 @@ Mục tiêu của giai đoạn G3 là chạy cùng một kịch bản nghiệp v
    - `sql/04_testing/T1_T5_verify_dml_events.sql` (`@AfterStep = 5`)
    - `sql/04_testing/T6_T7_time_travel_queries.sql` (với 3 mốc UTC thật vừa ghi)
 
-Toàn bộ output không chỉnh sửa được lưu tại [`evidence/G3_20261127/`](../../evidence/G3_20261127/) (kèm `run_info.txt` ghi người chạy, phiên bản SQL Server, Git commit SHA và 3 mốc UTC).
+Toàn bộ output không chỉnh sửa được lưu tại [`evidence/Kiet/`](../../evidence/Kiet/) (kèm `run_info.txt` ghi người chạy, phiên bản SQL Server, Git commit SHA và 3 mốc UTC).
 
 ---
 
@@ -36,7 +36,7 @@ Tổng kết lần chạy ngày 27/11/2026: **49/49 mục kiểm tra PASS, 0 FAI
 
 ### 2.1. Diễn biến trạng thái Current và History qua T0–T5
 
-Nguồn: [`evidence/G3_20261127/06_dml_flow_T1_T5.txt`](../../evidence/G3_20261127/06_dml_flow_T1_T5.txt) và [`07_verify_T1_T5.txt`](../../evidence/G3_20261127/07_verify_T1_T5.txt).
+Nguồn: [`evidence/Kiet/06_dml_flow_T1_T5.txt`](../../evidence/Kiet/06_dml_flow_T1_T5.txt) và [`07_verify_T1_T5.txt`](../../evidence/Kiet/07_verify_T1_T5.txt).
 
 | Mã test | Thao tác | Current (Manual = Native) | History (Manual = Native) | Trạng thái |
 |---|---|---|---|---|
@@ -49,7 +49,7 @@ Nguồn: [`evidence/G3_20261127/06_dml_flow_T1_T5.txt`](../../evidence/G3_202611
 
 ### 2.2. Period thực tế của sản phẩm 101 và kết quả T6, T7
 
-Nguồn: [`evidence/G3_20261127/08_T6_T7.txt`](../../evidence/G3_20261127/08_T6_T7.txt).
+Nguồn: [`evidence/Kiet/08_T6_T7.txt`](../../evidence/Kiet/08_T6_T7.txt).
 
 **Các phiên bản của sản phẩm 101 quan sát được (UTC):**
 
@@ -92,11 +92,11 @@ Ba mốc UTC ghi được:
 | # | Tiêu chí | Nhánh A – Manual (Trigger + History Table) | Nhánh B – Native (System-Versioned Temporal Table) | Bằng chứng / Nguồn |
 |---|---|---|---|---|
 | **C1** | **Tính tự động hóa** | Thấp. Phải tự viết 3 script cài đặt (~240 dòng SQL): tạo bảng History, thêm & khởi tạo cột period, viết trigger `AFTER INSERT, UPDATE, DELETE` xử lý `inserted`/`deleted`, chặn sửa `ProductID`/`ValidFrom`/`ValidTo` và chặn lồng trigger (`TRIGGER_NESTLEVEL`). | Cao. Chỉ cần khai báo 2 cột `GENERATED ALWAYS AS ROW START/END`, `PERIOD FOR SYSTEM_TIME` và bật `SYSTEM_VERSIONING = ON` (~25 dòng SQL). Engine tự tạo bảng History và tự chuyển phiên bản cũ khi UPDATE/DELETE. | `sql/01_trigger/` vs `sql/02_native_temporal/enable_system_versioning.sql` |
-| **C2** | **Ý nghĩa timestamp** | Lấy `SYSUTCDATETIME()` tại **thời điểm câu DML / trigger thực thi**. Nếu một giao tác chạy lâu có nhiều câu lệnh, mỗi câu có thể có timestamp khác nhau. Nhóm phải tự quy ước lấy chung 1 biến `@NowUtc` để đóng bản cũ và mở bản mới (đạt ở T5). | SQL Server tự ghi UTC theo **thời điểm bắt đầu giao tác** (`transaction begin`). Nhất quán hoàn toàn trong cùng một giao tác; các phiên bản độ dài 0 (sửa 2 lần cùng khóa trong 1 giao tác) bị `FOR SYSTEM_TIME` tự động lọc bỏ. | `evidence/G3_20261127/07_verify_T1_T5.txt`, Microsoft Learn (*Temporal Tables*) |
+| **C2** | **Ý nghĩa timestamp** | Lấy `SYSUTCDATETIME()` tại **thời điểm câu DML / trigger thực thi**. Nếu một giao tác chạy lâu có nhiều câu lệnh, mỗi câu có thể có timestamp khác nhau. Nhóm phải tự quy ước lấy chung 1 biến `@NowUtc` để đóng bản cũ và mở bản mới (đạt ở T5). | SQL Server tự ghi UTC theo **thời điểm bắt đầu giao tác** (`transaction begin`). Nhất quán hoàn toàn trong cùng một giao tác; các phiên bản độ dài 0 (sửa 2 lần cùng khóa trong 1 giao tác) bị `FOR SYSTEM_TIME` tự động lọc bỏ. | `evidence/Kiet/07_verify_T1_T5.txt`, Microsoft Learn (*Temporal Tables*) |
 | **C3** | **Cách truy vấn lịch sử** | Phức tạp và dễ sai biên. Phải tự viết `UNION ALL` giữa Current và History (đảm bảo cùng danh sách cột), tự loại phiên bản độ dài 0 (`ValidFrom < ValidTo`), rồi tự viết biểu thức so sánh khoảng (`<=`, `>`, `<`) cho từng loại truy vấn. | Ngắn gọn, khai báo rõ ý định với `FOR SYSTEM_TIME AS OF`, `FROM … TO`, `BETWEEN … AND`, `CONTAINED IN`, `ALL`. Engine tự hợp nhất Current + History và tự xử lý điều kiện biên. | `sql/04_testing/T6_T7_time_travel_queries.sql`, `08_T6_T7.txt` |
 | **C4** | **Phần phải tự bảo trì** | Cao. Khi thêm 1 cột nghiệp vụ (ví dụ `PriceSource`), phải sửa ít nhất **3 nơi**: bảng `ManualHistory`, câu `INSERT` trong trigger, và mọi truy vấn `UNION ALL`. Nếu thêm cột vào History nhưng quên sửa trigger, bản ghi lịch sử âm thầm lưu `NULL` thay vì giá trị cũ. | Thấp hơn rõ rệt. Khi chạy `ALTER TABLE` thêm/đổi cột trên bảng Current, SQL Server tự động đồng bộ schema tương ứng sang bảng History và không có trigger nào phải sửa. | Thực nghiệm C4 của Thùy: `evidence/Thuy/thuy_c4_schema_maintenance.txt` (4/4 bước PASS), Microsoft Learn (*Changing the Schema of a System-Versioned Temporal Table*) |
 | **C5** | **Tính linh hoạt** | Cao. Lập trình viên có toàn quyền tùy biến: chỉ ghi lịch sử khi `UnitPrice` thực sự đổi (bỏ qua no-op UPDATE), lưu thêm metadata ứng dụng (người sửa, lý do), hoặc tự thiết kế cấu trúc bảng History. | Thấp hơn. Cơ chế ghi lịch sử cố định ở mức dòng theo System Time; mọi UPDATE (kể cả không đổi giá trị) đều sinh dòng History, không chèn thêm logic lọc tùy biến vào quá trình ghi History. | Thiết kế trigger `sql/01_trigger/create_manual_trigger.sql`, Microsoft Learn (*Temporal Table Considerations and Limitations*) |
-| **C6** | **Giới hạn & ràng buộc** | Không bị ràng buộc bởi phiên bản SQL Server hay cấu trúc PK, nhưng lịch sử có thể bị người có quyền `UPDATE`/`DELETE` sửa trực tiếp nếu không phân quyền chặt; tự phải xây lịch dọn dữ liệu cũ (retention). | Yêu cầu SQL Server 2016+; bảng Current bắt buộc có PK; không cho `UPDATE`/`DELETE` trực tiếp bảng History khi `SYSTEM_VERSIONING = ON` (tăng tính toàn vẹn kiểm toán); hỗ trợ sẵn `HISTORY_RETENTION_PERIOD` (dọn nền theo `ValidTo`, cần bật `TEMPORAL_HISTORY_RETENTION` ở mức DB). | `evidence/G3_20261127/07_verify_T1_T5.txt` (`INFINITE`), Microsoft Learn (*Manage Retention of Historical Data*) |
+| **C6** | **Giới hạn & ràng buộc** | Không bị ràng buộc bởi phiên bản SQL Server hay cấu trúc PK, nhưng lịch sử có thể bị người có quyền `UPDATE`/`DELETE` sửa trực tiếp nếu không phân quyền chặt; tự phải xây lịch dọn dữ liệu cũ (retention). | Yêu cầu SQL Server 2016+; bảng Current bắt buộc có PK; không cho `UPDATE`/`DELETE` trực tiếp bảng History khi `SYSTEM_VERSIONING = ON` (tăng tính toàn vẹn kiểm toán); hỗ trợ sẵn `HISTORY_RETENTION_PERIOD` (dọn nền theo `ValidTo`, cần bật `TEMPORAL_HISTORY_RETENTION` ở mức DB). | `evidence/Kiet/07_verify_T1_T5.txt` (`INFINITE`), Microsoft Learn (*Manage Retention of Historical Data*) |
 
 > **Lưu ý phạm vi:** Báo cáo **không** đưa ra kết luận phương pháp nào nhanh hơn (hiệu năng/latency/I/O) vì benchmark nằm ngoài phạm vi đồ án và nhóm chưa tiến hành đo đạc định lượng.
 

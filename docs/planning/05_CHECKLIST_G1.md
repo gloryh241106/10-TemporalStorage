@@ -28,7 +28,7 @@ Quy ước [tab Đồ án Lý thuyết](https://docs.google.com/document/d/1mPEM
 - [x] Kiệt rà và xác nhận Test Plan 1.1 cùng log T0 ngày 13/11 (18/11). Nâng `T1_T5_verify_dml_events.sql` lên v1.1 có Expected/Actual/Status; thêm [runbook G3](07_G3_runbook_Kiet.md).
 - [x] Thùy bàn giao script Manual, quy ước timestamp và output thử UPDATE (đã merge PR #4, #5).
 - [ ] Trung bàn giao script Native, period `DATETIME2(7)` và output thử UPDATE (nhánh `feature/Update_System_Versioning` chưa merge, chưa có output trong `evidence/`).
-- [x] Kiệt chạy đối chứng G3 trên `TemporalSeminarDB` (SQL Server 2025 `17.0.1000.7`, dùng script Manual đã merge và `enable_system_versioning.sql` trên `main`): **49/49 PASS** ([evidence/G3_20261127/](../../evidence/G3_20261127/), [Bao_cao_Kiet_TV4.md](../report/Bao_cao_Kiet_TV4.md)). Sẽ chạy lại xác nhận nếu Trung cập nhật/merge nhánh Native mới.
+- [x] Kiệt chạy đối chứng G3 trên `TemporalSeminarDB` (SQL Server 2025 `17.0.1000.7`, dùng script Manual đã merge và `enable_system_versioning.sql` trên `main`): **49/49 PASS** ([evidence/Kiet/](../../evidence/Kiet/), [Bao_cao_Kiet_TV4.md](../report/Bao_cao_Kiet_TV4.md)). Sẽ chạy lại xác nhận nếu Trung cập nhật/merge nhánh Native mới.
 
 ## D. Hoàng – tích hợp và chuẩn bị nộp
 

@@ -29,7 +29,7 @@ if (-not $NativeEnableScript) {
 }
 $nativePath = if ([IO.Path]::IsPathRooted($NativeEnableScript)) { $NativeEnableScript } else { Join-Path $repo $NativeEnableScript }
 $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd_HHmm')
-if (-not $OutDir) { $OutDir = Join-Path $repo "evidence\G3_$stamp" }
+if (-not $OutDir) { $OutDir = Join-Path $repo "evidence\Kiet" }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $tmp = Join-Path $env:TEMP "g3_$stamp"; New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 

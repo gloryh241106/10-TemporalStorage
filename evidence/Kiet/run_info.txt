@@ -1,4 +1,4 @@
-﻿G3 run info
+G3 run info
 RunBy          : Kiet (TV4)
 RunAtUtc       : 2026-11-27 08:53:50
 Server/Database: . / TemporalSeminarDB
