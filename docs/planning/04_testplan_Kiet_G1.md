@@ -2,8 +2,8 @@
 
 **Phiên bản:** 1.1 (đồng bộ hợp đồng V4)  
 **Người tạo:** Kiệt (TV4)  
-**Ngày tạo:** 2026-10-28 · **Cập nhật:** 2026-11-13 (Hoàng soạn thay, chờ Kiệt xác nhận)  
-**Trạng thái:** T0 V4 đã chạy lại trên database thử sạch. T6/T7 đã theo `ValidFrom`/`ValidTo` và ba mốc UTC theo mục 10.4 trong Google Docs quy ước. Kiệt xác nhận phần đối chứng sau khi nhận hai nhánh.
+**Ngày tạo:** 2026-10-28 · **Cập nhật:** 2026-11-13 (Hoàng soạn thay) · 2026-11-18 (Kiệt rà, xác nhận 1.1, nâng `T1_T5_verify_dml_events.sql` lên v1.1)  
+**Trạng thái:** T0 V4 đã chạy lại trên database thử sạch. T6/T7 đã theo `ValidFrom`/`ValidTo` và ba mốc UTC theo mục 10.4 trong Google Docs quy ước. Kiệt đã xác nhận bản 1.1 ngày 18/11; phần đối chứng chạy sau khi nhận hai nhánh theo [runbook G3](07_G3_runbook_Kiet.md).
 **Tham chiếu:** `02_team_data_contract.md`
 
 ---
@@ -249,7 +249,7 @@ Các script trong `sql/04_testing/` chỉ đọc. DML của T1–T5 do Thùy và
 | Script | Nội dung |
 |---|---|
 | `01_verify_setup.sql` | Kiểm tra T0 trước G2. |
-| `T1_T5_verify_dml_events.sql` | Đọc Current và History của hai nhánh sau từng sự kiện T1–T5 |
+| `T1_T5_verify_dml_events.sql` | v1.1: đặt `@AfterStep` (1–5) theo bước đã commit. Kiểm metadata (DATETIME2(7), trigger, PK `HistoryID`, retention `INFINITE`), giá Current/History, `ValidTo` cực đại, period liền mạch của 101, T5 dùng chung một mốc, rồi đối chứng giá trị hai nhánh. In bảng Expected/Actual/Status và Verdict từng nhánh |
 | `T6_T7_time_travel_queries.sql` | Nhận 3 mốc UTC; chạy AS OF, `FROM ... TO` và hai mệnh đề phụ lục; in bảng Expected/Actual/Status cho từng nhánh |
 
 ---
@@ -260,14 +260,16 @@ Mỗi test case sau G2 cần lưu đầy đủ:
 
 | Test | Script chạy | Output/Ảnh SSMS | Before State | After State | UTC timestamp | Pass/Fail | Người xác nhận |
 |---|---|---|---|---|---|---|---|
-| T0 | `01_verify_setup.sql` | [G1_V4_T0_rerun_20261113.txt](../../evidence/G1_V4_T0_rerun_20261113.txt) | DB thử trống | 5 / 4 / 4, 105 chưa có giá | xem log | PASS | Hoàng chạy, chờ Kiệt xác nhận |
-| T1 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
-| T2 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
-| T3 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
-| T4 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
-| T5 | `T1_T5_verify_dml_events.sql` | | | | | NOT RUN | Kiệt |
-| T6 | `T6_T7_time_travel_queries.sql` | | | | | NOT RUN | Kiệt |
-| T7 | `T6_T7_time_travel_queries.sql` | | | | | NOT RUN | Kiệt |
+| T0 | `01_verify_setup.sql` | [G1_V4_T0_rerun_20261113.txt](../../evidence/G1_V4_T0_rerun_20261113.txt), [G3/01_T0.txt](../../evidence/Kiet/01_T0.txt) | DB thử trống | 5 Product / 4 Manual / 4 Native, 105 chưa có giá | `2026-11-27 08:53:42.2612901` | **PASS** | Hoàng (G1), Kiệt (G3) |
+| T1 | `g3_dml_flow_t1_t5.sql` + `T1_T5_verify_dml_events.sql` | [G3/06_dml_flow_T1_T5.txt](../../evidence/Kiet/06_dml_flow_T1_T5.txt), [G3/07_verify_T1_T5.txt](../../evidence/Kiet/07_verify_T1_T5.txt) | Current 4, History 0 | Current 5 (105=19.000), History 0 (cả 2 nhánh) | `2026-11-27 08:53:42.9477635` | **PASS** | Kiệt |
+| T2 | `g3_dml_flow_t1_t5.sql` + `T1_T5_verify_dml_events.sql` | [G3/06_dml_flow_T1_T5.txt](../../evidence/Kiet/06_dml_flow_T1_T5.txt), [G3/07_verify_T1_T5.txt](../../evidence/Kiet/07_verify_T1_T5.txt) | 101=25.000, History 0 | Current 101=27.000; History 1 dòng (101=25.000) | `2026-11-27 08:53:45.0098384` | **PASS** | Kiệt |
+| T3 | `g3_dml_flow_t1_t5.sql` + `T1_T5_verify_dml_events.sql` | [G3/06_dml_flow_T1_T5.txt](../../evidence/Kiet/06_dml_flow_T1_T5.txt), [G3/07_verify_T1_T5.txt](../../evidence/Kiet/07_verify_T1_T5.txt) | 101=27.000, History 1 | Current 101=30.000; History 2 dòng (25.000, 27.000) | `2026-11-27 08:53:47.0286776` | **PASS** | Kiệt |
+| T4 | `g3_dml_flow_t1_t5.sql` + `T1_T5_verify_dml_events.sql` | [G3/06_dml_flow_T1_T5.txt](../../evidence/Kiet/06_dml_flow_T1_T5.txt), [G3/07_verify_T1_T5.txt](../../evidence/Kiet/07_verify_T1_T5.txt) | Current 5 (104=45.000), History 2 | Current 4 (bỏ 104); History 3 (thêm 104=45.000); `dbo.Product` còn 104 | `2026-11-27 08:53:49.0551644` | **PASS** | Kiệt |
+| T5 | `g3_dml_flow_t1_t5.sql` + `T1_T5_verify_dml_events.sql` | [G3/06_dml_flow_T1_T5.txt](../../evidence/Kiet/06_dml_flow_T1_T5.txt), [G3/07_verify_T1_T5.txt](../../evidence/Kiet/07_verify_T1_T5.txt) | 102=25.000, 103=28.000, History 3 | Current 102=27.000, 103=30.000; History 5 (thêm 102=25.000, 103=28.000 cùng 1 mốc) | `2026-11-27 08:53:49.0855193` | **PASS** | Kiệt |
+| T6 | `T6_T7_time_travel_queries.sql` | [G3/08_T6_T7.txt](../../evidence/Kiet/08_T6_T7.txt) | 3 mốc UTC đã ghi (`t_ready`, `t_between`, `t_after_T3`) | AS OF trả về đúng `25000.00`, `27000.00`, `30000.00` ở cả 2 nhánh (6/6 PASS) | `08:53:43.9598271` / `08:53:46.0135258` / `08:53:48.0340757` | **PASS** | Kiệt |
+| T7 | `T6_T7_time_travel_queries.sql` | [G3/08_T6_T7.txt](../../evidence/Kiet/08_T6_T7.txt) | Khoảng `[@t_ready, ValidFrom_30000)` | `FROM..TO`: `25000, 27000`; `BETWEEN`: `25000, 27000, 30000`; `CONTAINED IN`: `27000` (6/6 PASS) | `2026-11-27 08:53:50.3131691` | **PASS** | Kiệt |
+
+> **Thông tin lần chạy G3:** SQL Server 2025 Standard Developer Edition (64-bit) build `17.0.1000.7`, compatibility level `170`, database `TemporalSeminarDB`, tổng **49/49 PASS, 0 FAIL, 0 BLOCKED**. Xem chi tiết trong [run_info.txt](../../evidence/Kiet/run_info.txt) và báo cáo đối chứng [Bao_cao_Kiet_TV4.md](../report/Bao_cao_Kiet_TV4.md).
 
 ---
 
@@ -290,11 +292,20 @@ Sau khi hoàn thành T0–T7, lập bảng so sánh theo 6 tiêu chí sau:
 
 | Thành viên | Vai trò | Xác nhận | Ngày |
 |---|---|---|---|
-| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ Đã xác nhận bản 1.0 (28/10). ⬜ Chờ xác nhận bản 1.1 | |
+| **Kiệt (TV4)** | Test plan T0–T7, tiêu chí so sánh | ✅ Đã xác nhận bản 1.0 (28/10) và bản 1.1 cùng log T0 ngày 13/11 | 2026-11-18 |
 | Thùy (TV2) | Hiểu timestamp ManualHistory và multi-row | ⬜ Chờ ký | |
 | Trung (TV3) | Xác nhận period DATETIME2 và SQL Server version | ⬜ Chờ ký | |
 | Hoàng (TV1) | Ghi quyết định G1 và ngày chốt | Đã ghi quy ước và log T0 | 2026-11-10 |
 
 ---
 
-*Kiệt (TV4) sở hữu test plan. Bản 1.1 do Hoàng cập nhật ngày 13/11/2026 theo hợp đồng V4; Kiệt rà và xác nhận trước G2.*
+## 9. Ghi chú rà soát bản 1.1 (Kiệt, 18/11)
+
+- Kỳ vọng T0–T7 khớp hợp đồng V4 và `06_G2_handoff.md`; điều kiện biên của T7 (`FROM..TO`, `BETWEEN`, `CONTAINED IN`) khớp Microsoft Learn.
+- `T1_T5_verify_dml_events.sql` bản cũ chỉ in `SELECT *`, không kiểm `ValidFrom`/`ValidTo` và không có PASS/FAIL. Bản 1.1 đã bổ sung, cùng định dạng kết quả với `T6_T7_time_travel_queries.sql`.
+- Hai script đã chạy thử trên database giả lập (`TemporalSeminarDB_KietSim`, SQL Server 2025 17.0.1000.7) với trigger và temporal do Kiệt tự dựng tạm. Kết quả: nhánh đúng thì PASS hết; trigger chỉ đọc một dòng thì FAIL ở T5 (mất History 102); retention 30 ngày thì FAIL ở META. Đây là thử script, **không phải bằng chứng G2/G3**.
+- Mốc thời gian: hạn bàn giao G2 là 22/11, trễ hơn hạn kiểm thử tích hợp 21/11 trong phân công. Đề xuất chạy G3 từ 22–25/11; báo cáo và slide của Kiệt vẫn giữ hạn 30/11.
+
+---
+
+*Kiệt (TV4) sở hữu test plan. Bản 1.1 do Hoàng cập nhật ngày 13/11/2026 theo hợp đồng V4; Kiệt rà và xác nhận ngày 18/11/2026.*
