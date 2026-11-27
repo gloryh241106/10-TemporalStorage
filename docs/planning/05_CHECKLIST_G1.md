@@ -26,9 +26,9 @@ Quy ước [tab Đồ án Lý thuyết](https://docs.google.com/document/d/1mPEM
 - [x] Hoàng cập nhật Test Plan 1.1 và script T6/T7 theo hợp đồng V4 (13/11): `ValidFrom`/`ValidTo`, ba mốc UTC, cận trên T7 là `ValidFrom` của bản 30.000, bảng Expected/Actual/Status. Script đã chạy thử trên sandbox giả lập hai nhánh; đó không phải bằng chứng G2.
 - [x] Hoàng chốt phần G1 ngày 16/11: hợp đồng ghi SQL Server 2025, quy tắc mốc cho dòng R0 bên Manual, bộ mốc UTC dùng chung cho hai nhánh. G2 bắt đầu theo [bàn giao G2](06_G2_handoff.md).
 - [x] Kiệt rà và xác nhận Test Plan 1.1 cùng log T0 ngày 13/11 (18/11). Nâng `T1_T5_verify_dml_events.sql` lên v1.1 có Expected/Actual/Status; thêm [runbook G3](07_G3_runbook_Kiet.md).
-- [ ] Thùy bàn giao script Manual, quy ước timestamp và output thử UPDATE.
-- [ ] Trung bàn giao script Native, period `DATETIME2(7)` và output thử UPDATE.
-- [ ] Kiệt chạy từng nhánh khi nhận bàn giao, sau đó đối chứng khi có đủ hai nhánh. Lưu kết quả theo lần chạy.
+- [x] Thùy bàn giao script Manual, quy ước timestamp và output thử UPDATE (đã merge PR #4, #5).
+- [ ] Trung bàn giao script Native, period `DATETIME2(7)` và output thử UPDATE (nhánh `feature/Update_System_Versioning` chưa merge, chưa có output trong `evidence/`).
+- [x] Kiệt chạy đối chứng G3 trên `TemporalSeminarDB` (SQL Server 2025 `17.0.1000.7`, dùng script Manual đã merge và `enable_system_versioning.sql` trên `main`): **49/49 PASS** ([evidence/G3_20261127/](../../evidence/G3_20261127/), [Bao_cao_Kiet_TV4.md](../report/Bao_cao_Kiet_TV4.md)). Sẽ chạy lại xác nhận nếu Trung cập nhật/merge nhánh Native mới.
 
 ## D. Hoàng – tích hợp và chuẩn bị nộp
 

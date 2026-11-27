@@ -1,0 +1,10 @@
+﻿G3 run info
+RunBy          : Kiet (TV4)
+RunAtUtc       : 2026-11-27 08:53:50
+Server/Database: . / TemporalSeminarDB
+SQL Server     : 17.0.1000.7 | Standard Developer Edition (64-bit) | CompatibilityLevel 170 (xem 01_T0.txt)
+Git HEAD       : 57008e6e763b78459f31784c5de23611e82495e9 (working tree co thay doi chua commit)
+Native script  : sql\02_native_temporal\enable_system_versioning.sql (commit gan nhat: 3c90704fb4dea31da4dfdb62df5a2d9a1f1223c2)
+Marks (UTC)    : t_ready=2026-11-27 08:53:43.9598271 | t_between=2026-11-27 08:53:46.0135258 | t_after_T3=2026-11-27 08:53:48.0340757
+Result rows    : PASS=49, FAIL/BLOCKED=0
+Files          : 00_setup, 01_T0, 02-05 cai dat, 06_dml_flow_T1_T5, 07_verify_T1_T5, 08_T6_T7
